@@ -1,0 +1,59 @@
+name: Build and Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }} # Se configura en GitHub Secrets
+  REGION: us-central1                          # Cambia esto por tu región de GCP preferida
+  REPOSITORY: ayuda-venezuela                 # Nombre del repositorio en Artifact Registry
+  SERVICE: ayuda-venezuela-backend            # Nombre del servicio en Cloud Run
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Autenticación en Google Cloud mediante Service Account Key
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }} # Clave JSON de tu Service Account de GCP
+
+      # 2. Configurar herramientas de Google Cloud SDK
+      - name: Set up gcloud Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 3. Configurar Docker para autenticarse en Google Artifact Registry
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # 4. Compilar e Instalar la imagen de Docker para Artifact Registry
+      - name: Build and Push Container
+        run: |
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ github.sha }}"
+          docker build -t "$IMAGE_TAG" .
+          docker push "$IMAGE_TAG"
+
+      # 5. Desplegar en Google Cloud Run e inyectar variables de entorno
+      - name: Deploy to Google Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ github.sha }}
+          env_vars: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+          flags: '--allow-unauthenticated' # Requerido para recibir reportes públicos anónimos
