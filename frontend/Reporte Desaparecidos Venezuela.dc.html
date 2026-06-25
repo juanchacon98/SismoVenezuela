@@ -420,6 +420,26 @@
         .toast-success { border-color: var(--color-success); border-left: 4px solid var(--color-success); }
         .toast-error { border-color: var(--color-critical); border-left: 4px solid var(--color-critical); }
         .toast-info { border-color: var(--color-info); border-left: 4px solid var(--color-info); }
+
+        /* BOTÓN DE WHATSAPP DINÁMICO */
+        .btn-whatsapp {
+            margin-left: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: #25d366;
+            color: #000;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .btn-whatsapp:hover {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+        }
     </style>
 </head>
 <body>
@@ -699,6 +719,9 @@
             }
 
             sourcesHTML += `</div>`;
+            
+            // Generar enlace de WhatsApp si el contacto es un teléfono
+            const waLink = getWhatsAppLink(r.contact_info, r.title, r.type, r.location_text);
 
             return `
                 <div class="report-card">
@@ -720,7 +743,16 @@
                     <div class="report-meta">
                         <div class="meta-item">📍 <strong>Ubicación:</strong> ${escapeHTML(r.location_text)}</div>
                         ${r.lat && r.lng ? `<div class="meta-item">🌐 <strong>GPS:</strong> ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</div>` : ''}
-                        ${r.contact_info ? `<div class="meta-item">📞 <strong>Contacto:</strong> ${escapeHTML(r.contact_info)}</div>` : ''}
+                        
+                        <div class="meta-item">
+                            📞 <strong>Contacto:</strong> ${r.contact_info ? escapeHTML(r.contact_info) : 'Anónimo'}
+                            ${waLink ? `
+                                <a href="${waLink}" target="_blank" class="btn-whatsapp">
+                                    💬 WhatsApp
+                                </a>
+                            ` : ''}
+                        </div>
+
                         ${sourcesHTML}
                     </div>
 
@@ -864,6 +896,34 @@
         setTimeout(() => {
             toast.classList.remove('show');
         }, 5000);
+    }
+
+    // Helper para generar enlace de WhatsApp dinámico
+    function getWhatsAppLink(contactInfo, title, type, locationText) {
+        if (!contactInfo) return null;
+        
+        // Limpiar para dejar solo dígitos
+        const cleaned = contactInfo.replace(/\D/g, '');
+        
+        // Si tiene longitud de número celular (local o internacional)
+        if (cleaned.length >= 10 && cleaned.length <= 15) {
+            let phone = cleaned;
+            
+            // Reemplazar prefijo local '0' por código internacional '58' (Venezuela)
+            if (phone.startsWith('0')) {
+                phone = '58' + phone.substring(1);
+            }
+            // Prepender '58' si son 10 dígitos y empieza con rango de móviles venezolanos
+            if (phone.length === 10 && (phone.startsWith('412') || phone.startsWith('414') || phone.startsWith('416') || phone.startsWith('424') || phone.startsWith('426'))) {
+                phone = '58' + phone;
+            }
+
+            const incident = title || type.replace('_', ' ');
+            const message = `Hola, nos comunicamos desde la plataforma de emergencia SismoCaracas. Vimos tu reporte sobre: "${incident}" en "${locationText}". ¿Dónde se encuentran exactamente y qué ayuda necesitan en este momento?`;
+            
+            return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        }
+        return null;
     }
 
     // Helper para escapar HTML
