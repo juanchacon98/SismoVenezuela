@@ -158,15 +158,16 @@ app.patch('/api/reports/:id/resolve', async (req, res) => {
 app.post('/api/sync-external', async (req, res) => {
   try {
     let ai;
-    // Autenticación inteligente: Usa API Key local o Vertex AI en GCP (IAM default credentials)
+    // Autenticación inteligente: Usa API Key local o Vertex AI en GCP (Enterprise)
     if (process.env.GEMINI_API_KEY) {
       ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     } else {
-      ai = new GoogleGenAI({
-        vertex: true,
-        project: process.env.GCP_PROJECT_ID || 'praxis-ia-498305',
-        location: 'us-central1'
-      });
+      // Configurar variables necesarias para que el SDK de GenAI active el modo Vertex Enterprise
+      process.env.GOOGLE_GENAI_USE_ENTERPRISE = 'true';
+      process.env.GOOGLE_CLOUD_PROJECT = process.env.GCP_PROJECT_ID || 'praxis-ia-498305';
+      process.env.GOOGLE_CLOUD_LOCATION = 'us-central1';
+      
+      ai = new GoogleGenAI({}); // Inicialización vacía para cargar de forma automática Vertex AI
     }
 
     console.log('Iniciando rastreo web con IA y Google Search Grounding...');
