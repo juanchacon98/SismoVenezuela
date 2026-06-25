@@ -440,6 +440,28 @@
             transform: scale(1.05);
             filter: brightness(1.1);
         }
+
+        /* BOTÓN DE TWITTER/X DINÁMICO */
+        .btn-twitter {
+            margin-left: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: #000;
+            color: #fff;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .btn-twitter:hover {
+            transform: scale(1.05);
+            background: #111;
+            border-color: rgba(255, 255, 255, 0.35);
+        }
     </style>
 </head>
 <body>
@@ -723,6 +745,9 @@
             // Generar enlace de WhatsApp si el contacto es un teléfono
             const waLink = getWhatsAppLink(r.contact_info, r.title, r.type, r.location_text);
 
+            // Generar enlace de Twitter/X
+            const twLink = getTwitterShareLink(r.type, r.location_text, r.description, r.title, r.source_url);
+
             return `
                 <div class="report-card">
                     <div class="priority-stripe stripe-${r.urgency}"></div>
@@ -751,6 +776,10 @@
                                     💬 WhatsApp
                                 </a>
                             ` : ''}
+                            <a href="${twLink}" target="_blank" class="btn-twitter">
+                                <svg viewBox="0 0 24 24" style="width: 10px; height: 10px; fill: currentColor;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                <span>Compartir X</span>
+                            </a>
                         </div>
 
                         ${sourcesHTML}
@@ -924,6 +953,28 @@
             return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         }
         return null;
+    }
+
+    // Helper para generar enlace de Twitter/X Web Intent
+    function getTwitterShareLink(type, locationText, description, title, reportUrl) {
+        const formattedType = type ? type.replace(/_/g, ' ').toUpperCase() : 'INCIDENTE';
+        const incidentName = title ? title.toUpperCase() : formattedType;
+        const alertHeader = `🚨 URGENTE: Reporte de ${incidentName} en ${locationText}\n\n`;
+        const alertFooter = `\n\nRescate: @PCivil_Ve @paramedicosmtt @bomberos_dc @MirandaPCivil\n#SismoCaracas #EmergenciaVzla`;
+
+        const maxTextLimit = 280;
+        const availableLength = maxTextLimit - alertHeader.length - alertFooter.length;
+
+        let cleanDescription = description || '';
+        if (cleanDescription.length > availableLength && availableLength > 10) {
+            cleanDescription = cleanDescription.substring(0, availableLength - 3) + '...';
+        }
+
+        const fullText = `${alertHeader}${cleanDescription}${alertFooter}`;
+        const encodedText = encodeURIComponent(fullText);
+        const encodedUrl = encodeURIComponent(reportUrl || window.location.origin);
+
+        return `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
     }
 
     // Helper para escapar HTML
