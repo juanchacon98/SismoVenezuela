@@ -10,8 +10,10 @@ COPY package.json ./
 # Instalar solo las dependencias de producción
 RUN npm install --omit=dev
 
-# Copiar el código fuente y el archivo SQL del esquema
-COPY index.js migrate.js schema.sql ./
+# Copiar el código fuente, la base de datos y la carpeta del frontend
+COPY index.js ./
+COPY database/ ./database/
+COPY frontend/ ./frontend/
 
 # Exponer el puerto por defecto de Google Cloud Run
 EXPOSE 8080

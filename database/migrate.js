@@ -20,12 +20,13 @@ const runMigrations = async () => {
   const pool = new pg.Pool({ connectionString });
 
   try {
+    // Lee schema.sql del mismo directorio (/database)
     const sqlPath = path.join(__dirname, 'schema.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
-    // Ejecutar el script SQL
+    // Ejecuta el script SQL completo
     await pool.query(sql);
-    console.log('Migración y carga de esquema completada exitosamente.');
+    console.log('Migración y carga de esquema completada exitosamente (Idempotente).');
     process.exit(0);
   } catch (error) {
     console.error('Error crítico durante la migración de base de datos:', error.message);

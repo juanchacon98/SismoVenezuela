@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "migrate": "node migrate.js"
+    "migrate": "node database/migrate.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

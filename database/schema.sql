@@ -6,12 +6,19 @@
 -- 1. EXTENSIONES REQUERIDAS
 CREATE EXTENSION IF NOT EXISTS pg_trgm; -- Habilita similitud trigram para búsquedas difusas y de-duplicación
 
--- 2. ENUMS DE APLICACIÓN
-CREATE TYPE incident_type AS ENUM ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros');
-CREATE TYPE urgency_level AS ENUM ('critico', 'alto', 'moderado');
+-- 2. ENUMS DE APLICACIÓN (Encapsulados en un bloque DO para garantizar idempotencia)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_type') THEN
+        CREATE TYPE incident_type AS ENUM ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'urgency_level') THEN
+        CREATE TYPE urgency_level AS ENUM ('critico', 'alto', 'moderado');
+    END IF;
+END$$;
 
--- 3. TABLA PRINCIPAL: reports
-CREATE TABLE public.reports (
+-- 3. TABLA PRINCIPAL: reports (Creación Idempotente)
+CREATE TABLE IF NOT EXISTS public.reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type incident_type NOT NULL,
     urgency urgency_level NOT NULL,
@@ -24,8 +31,8 @@ CREATE TABLE public.reports (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 4. TABLA SECUNDARIA: missing_persons
-CREATE TABLE public.missing_persons (
+-- 4. TABLA SECUNDARIA: missing_persons (Creación Idempotente)
+CREATE TABLE IF NOT EXISTS public.missing_persons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
@@ -33,52 +40,64 @@ CREATE TABLE public.missing_persons (
     last_seen_location TEXT
 );
 
--- 5. ÍNDICES DE OPTIMIZACIÓN (Esenciales para baja latencia en redes 2G)
+-- 5. ÍNDICES DE OPTIMIZACIÓN (Creación Idempotente)
 -- Índice compuesto para el feed principal de incidentes activos y prioritarios
-CREATE INDEX idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
 
 -- Índice por tipo de incidente
-CREATE INDEX idx_reports_type ON public.reports (type);
+CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports (type);
 
 -- Índice de clave foránea para optimizar JOINs inmediatos
-CREATE INDEX idx_missing_persons_report_id ON public.missing_persons (report_id);
+CREATE INDEX IF NOT EXISTS idx_missing_persons_report_id ON public.missing_persons (report_id);
 
 -- Índice GIN (Fuzzy Search) para nombres de desaparecidos con pg_trgm
-CREATE INDEX idx_missing_persons_name_trgm ON public.missing_persons USING gin (full_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_missing_persons_name_trgm ON public.missing_persons USING gin (full_name gin_trgm_ops);
 
 -- ========================================================
 -- SEGURIDAD A NIVEL DE FILAS (RLS) EN CLOUD SQL
 -- ========================================================
--- El backend (Cloud Run) ejecutará: "SET LOCAL app.role = 'authenticated'" para rescatistas.
-
+-- Habilitar RLS en las tablas
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.reports FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons FORCE ROW LEVEL SECURITY;
 
--- -- POLÍTICAS PARA: reports -- --
+-- -- POLÍTICAS PARA: reports (Idempotentes: DROP e INSERT) -- --
+DROP POLICY IF EXISTS "Permitir select público en reports" ON public.reports;
 CREATE POLICY "Permitir select público en reports" ON public.reports FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir insert público en reports" ON public.reports;
 CREATE POLICY "Permitir insert público en reports" ON public.reports FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir update a rescatistas autenticados" ON public.reports;
 CREATE POLICY "Permitir update a rescatistas autenticados" ON public.reports FOR UPDATE 
 USING (current_setting('app.role', true) = 'authenticated')
 WITH CHECK (current_setting('app.role', true) = 'authenticated');
+
+DROP POLICY IF EXISTS "Permitir delete a rescatistas autenticados" ON public.reports;
 CREATE POLICY "Permitir delete a rescatistas autenticados" ON public.reports FOR DELETE 
 USING (current_setting('app.role', true) = 'authenticated');
 
--- -- POLÍTICAS PARA: missing_persons -- --
+-- -- POLÍTICAS PARA: missing_persons (Idempotentes: DROP e INSERT) -- --
+DROP POLICY IF EXISTS "Permitir select público en missing_persons" ON public.missing_persons;
 CREATE POLICY "Permitir select público en missing_persons" ON public.missing_persons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir insert público en missing_persons" ON public.missing_persons;
 CREATE POLICY "Permitir insert público en missing_persons" ON public.missing_persons FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir update en missing_persons a rescatistas" ON public.missing_persons;
 CREATE POLICY "Permitir update en missing_persons a rescatistas" ON public.missing_persons FOR UPDATE 
 USING (current_setting('app.role', true) = 'authenticated')
 WITH CHECK (current_setting('app.role', true) = 'authenticated');
+
+DROP POLICY IF EXISTS "Permitir delete en missing_persons a rescatistas" ON public.missing_persons;
 CREATE POLICY "Permitir delete en missing_persons a rescatistas" ON public.missing_persons FOR DELETE 
 USING (current_setting('app.role', true) = 'authenticated');
 
 -- ========================================================
 -- ROL Y PERMISOS DE CONEXIÓN PARA EL BACKEND (Cloud Run)
 -- ========================================================
--- Nota: Rol app_user creado mediante gcloud.
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;

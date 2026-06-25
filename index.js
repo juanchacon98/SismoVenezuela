@@ -1,9 +1,14 @@
 import express from 'express';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -12,6 +17,14 @@ const port = process.env.PORT || 8080;
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+});
+
+// Servir archivos estáticos del frontend (como support.js y assets)
+app.use(express.static(path.join(__dirname, 'frontend')));
+
+// Ruta raíz para servir el HTML principal del frontend
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'Reporte Desaparecidos Venezuela.dc.html'));
 });
 
 // Endpoint de Health Check requerido por Google Cloud Run
@@ -29,6 +42,7 @@ app.post('/api/reports', async (req, res) => {
   try {
     const payload = req.body;
 
+    // Llamada al procedimiento almacenado SECURITY DEFINER en Postgres
     const result = await pool.query(
       'SELECT submit_emergency_report($1::jsonb) AS data;',
       [JSON.stringify(payload)]
@@ -166,10 +180,10 @@ app.post('/api/sync-external', async (req, res) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // Modelo de última generación optimizado para velocidad e inferencia
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }], // Activa la búsqueda en Google en tiempo real
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'ARRAY',
