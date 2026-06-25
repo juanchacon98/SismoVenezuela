@@ -173,12 +173,14 @@ app.post('/api/sync-external', async (req, res) => {
     console.log('Paso 1: Rastreo web con Google Search Grounding (Texto libre)...');
 
     const searchPrompt = `
-      Busca reportes recientes en Twitter, X y portales de noticias sobre emergencias médicas, 
+      Busca reportes recientes en Twitter, X y portales de noticias o periódicos sobre emergencias médicas, 
       solicitudes de suministros, colapsos de estructuras o personas desaparecidas causadas por el reciente 
       terremoto de magnitud 7.2 en Caracas, Venezuela.
-      Encuentra incidentes específicos con sus descripciones, ubicaciones físicas detalladas, coordenadas 
-      de GPS si se mencionan, nombres de personas desaparecidas y contactos.
-      Escribe un reporte de texto detallado resumiendo todos los incidentes encontrados.
+      Encuentra incidentes específicos con sus descripciones, ubicaciones físicas detalladas en Caracas, coordenadas 
+      de GPS si se mencionan y nombres de personas desaparecidas.
+      Es obligatorio extraer el título descriptivo corto del suceso y la URL o enlace web exacto (link) de donde 
+      obtienes la información (fuente de la noticia o tuit).
+      Escribe un reporte de texto detallado resumiendo todos los incidentes con sus respectivos títulos y links de fuente.
     `;
 
     const searchResponse = await ai.models.generateContent({
@@ -199,7 +201,8 @@ app.post('/api/sync-external', async (req, res) => {
       
       Extrae los incidentes válidos y devuélvelos estrictamente estructurados conforme al esquema JSON solicitado.
       Filtra y extrae solo incidentes reales con ubicaciones específicas en Caracas.
-      Si no se describen incidentes válidos, devuelve un arreglo vacío [].
+      Asegúrate de mapear el título descriptivo corto generado en "title" y el enlace de origen exacto en "source_url".
+      Si no se describen incidentes válidos en el texto, devuelve un arreglo vacío [].
     `;
 
     const structureResponse = await ai.models.generateContent({
@@ -220,6 +223,8 @@ app.post('/api/sync-external', async (req, res) => {
                 type: 'STRING', 
                 enum: ['critico', 'alto', 'moderado'] 
               },
+              title: { type: 'STRING' },
+              source_url: { type: 'STRING' },
               description: { type: 'STRING' },
               location_text: { type: 'STRING' },
               lat: { type: 'NUMBER' },
@@ -252,13 +257,13 @@ app.post('/api/sync-external', async (req, res) => {
           [JSON.stringify(r)]
         );
         results.push({
-          report: { type: r.type, location_text: r.location_text },
+          report: { type: r.type, title: r.title, location_text: r.location_text },
           status: dbResult.rows[0].data
         });
       } catch (insertErr) {
         console.error('Error al insertar reporte sincronizado:', insertErr.message);
         results.push({
-          report: { type: r.type, location_text: r.location_text },
+          report: { type: r.type, title: r.title, location_text: r.location_text },
           error: insertErr.message
         });
       }

@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type incident_type NOT NULL,
     urgency urgency_level NOT NULL,
+    title TEXT,                  -- Título descriptivo sintético (NUEVO)
+    source_url TEXT,             -- Enlace/URL original del reporte (NUEVO)
     description TEXT NOT NULL,
     location_text TEXT NOT NULL, -- GPS inestable; la descripción física de la ubicación es obligatoria
     lat DOUBLE PRECISION,        -- Coordenada opcional
@@ -30,6 +32,10 @@ CREATE TABLE IF NOT EXISTS public.reports (
     is_resolved BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Migración de esquema en caliente para bases de datos ya existentes (idempotente)
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS source_url TEXT;
 
 -- 4. TABLA SECUNDARIA: missing_persons (Creación Idempotente)
 CREATE TABLE IF NOT EXISTS public.missing_persons (
@@ -41,29 +47,21 @@ CREATE TABLE IF NOT EXISTS public.missing_persons (
 );
 
 -- 5. ÍNDICES DE OPTIMIZACIÓN (Creación Idempotente)
--- Índice compuesto para el feed principal de incidentes activos y prioritarios
 CREATE INDEX IF NOT EXISTS idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
-
--- Índice por tipo de incidente
 CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports (type);
-
--- Índice de clave foránea para optimizar JOINs inmediatos
 CREATE INDEX IF NOT EXISTS idx_missing_persons_report_id ON public.missing_persons (report_id);
-
--- Índice GIN (Fuzzy Search) para nombres de desaparecidos con pg_trgm
 CREATE INDEX IF NOT EXISTS idx_missing_persons_name_trgm ON public.missing_persons USING gin (full_name gin_trgm_ops);
 
 -- ========================================================
 -- SEGURIDAD A NIVEL DE FILAS (RLS) EN CLOUD SQL
 -- ========================================================
--- Habilitar RLS en las tablas
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.reports FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons FORCE ROW LEVEL SECURITY;
 
--- -- POLÍTICAS PARA: reports (Idempotentes: DROP e INSERT) -- --
+-- -- POLÍTICAS PARA: reports -- --
 DROP POLICY IF EXISTS "Permitir select público en reports" ON public.reports;
 CREATE POLICY "Permitir select público en reports" ON public.reports FOR SELECT USING (true);
 
@@ -79,7 +77,7 @@ DROP POLICY IF EXISTS "Permitir delete a rescatistas autenticados" ON public.rep
 CREATE POLICY "Permitir delete a rescatistas autenticados" ON public.reports FOR DELETE 
 USING (current_setting('app.role', true) = 'authenticated');
 
--- -- POLÍTICAS PARA: missing_persons (Idempotentes: DROP e INSERT) -- --
+-- -- POLÍTICAS PARA: missing_persons -- --
 DROP POLICY IF EXISTS "Permitir select público en missing_persons" ON public.missing_persons;
 CREATE POLICY "Permitir select público en missing_persons" ON public.missing_persons FOR SELECT USING (true);
 
@@ -106,16 +104,10 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
 -- RPC ATÓMICO: PROCESAMIENTO CON DE-DUPLICACIÓN INTELIGENTE
 -- ========================================================
 
-/**
- * Inserta un reporte de emergencia. Si detecta que ya existe un reporte sin resolver
- * del mismo tipo dentro de los 500m (GPS) o con similitud textual > 40% (pg_trgm),
- * fusiona automáticamente la nueva información como una "Actualización" en el reporte existente.
- * Esto optimiza el ancho de banda y evita duplicar tareas a las brigadas de rescate.
- */
 CREATE OR REPLACE FUNCTION public.submit_emergency_report(payload JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER -- Elude RLS durante la ejecución atómica
+SECURITY DEFINER 
 SET search_path = public
 AS $$
 DECLARE
@@ -123,6 +115,8 @@ DECLARE
     v_duplicate_id UUID;
     v_type TEXT;
     v_urgency TEXT;
+    v_title TEXT;
+    v_source_url TEXT;
     v_description TEXT;
     v_location_text TEXT;
     v_lat DOUBLE PRECISION;
@@ -138,6 +132,8 @@ BEGIN
     -- 1. Extracción de variables
     v_type := payload->>'type';
     v_urgency := payload->>'urgency';
+    v_title := payload->>'title';
+    v_source_url := payload->>'source_url';
     v_description := payload->>'description';
     v_location_text := payload->>'location_text';
     v_lat := (payload->>'lat')::DOUBLE PRECISION;
@@ -193,7 +189,7 @@ BEGIN
 
     -- 4. Bifurcación: Fusión o Inserción
     IF v_duplicate_id IS NOT NULL THEN
-        -- SE DETECTÓ UN DUPLICADO: Fusionamos la información en el reporte existente
+        -- SE DETECTÓ UN DUPLICADO: Fusionamos la información
         v_report_id := v_duplicate_id;
         v_status := 'merged';
 
@@ -203,6 +199,12 @@ BEGIN
                 WHEN v_contact_info IS NOT NULL AND v_contact_info != '' THEN 
                     COALESCE(contact_info, '') || ' | ' || v_contact_info
                 ELSE contact_info 
+            END,
+            -- Fusionamos URLs de origen si son diferentes
+            source_url = CASE 
+                WHEN v_source_url IS NOT NULL AND v_source_url != '' AND COALESCE(source_url, '') NOT LIKE '%' || v_source_url || '%' THEN 
+                    CASE WHEN source_url IS NOT NULL AND source_url != '' THEN source_url || ' | ' || v_source_url ELSE v_source_url END
+                ELSE source_url
             END
         WHERE id = v_duplicate_id;
 
@@ -212,6 +214,8 @@ BEGIN
         INSERT INTO public.reports (
             type,
             urgency,
+            title,
+            source_url,
             description,
             location_text,
             lat,
@@ -220,6 +224,8 @@ BEGIN
         ) VALUES (
             v_type::incident_type,
             v_urgency::urgency_level,
+            v_title,
+            v_source_url,
             v_description,
             v_location_text,
             v_lat,

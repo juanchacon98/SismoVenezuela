@@ -454,6 +454,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="title">Título Corto del Reporte</label>
+                        <input type="text" id="title" placeholder="Ej: Derrumbe parcial / Colapso de vía">
+                    </div>
+
+                    <div class="form-group">
                         <label for="urgency">Nivel de Urgencia</label>
                         <select id="urgency" required>
                             <option value="critico">Crítico (Vida o muerte)</option>
@@ -517,7 +522,7 @@
                     Rastreador de Redes por IA
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.4;">
-                    Activa a Google Gemini con Google Search Grounding para escanear en tiempo real Twitter/X y noticias. Los nuevos reportes se de-duplicarán e insertarán automáticamente.
+                    Activa a Google Gemini con Google Search Grounding para escanear en tiempo real Twitter/X y periódicos. Los nuevos reportes se de-duplicarán e insertarán automáticamente conservando la URL original de la fuente.
                 </p>
                 <button type="button" class="btn" id="btnSyncIA" style="background: rgba(59, 130, 246, 0.15); color: var(--color-info); border: 1px solid rgba(59, 130, 246, 0.3);">
                     🤖 Rastrear Web y Twitter con Gemini
@@ -658,6 +663,22 @@
                 `).join('');
             }
 
+            // Separar y formatear múltiples URLs si fueron fusionadas
+            let sourcesHTML = '';
+            if (r.source_url) {
+                const urls = r.source_url.split(' | ');
+                sourcesHTML = `
+                    <div class="meta-item" style="grid-column: span 2; margin-top: 0.25rem;">
+                        🔗 <strong>Fuente(s):</strong> 
+                        ${urls.map((url, idx) => `
+                            <a href="${escapeHTML(url)}" target="_blank" style="color: var(--color-info); text-decoration: underline; margin-right: 0.6rem; font-weight: 600;">
+                                [Enlace ${idx + 1}]
+                            </a>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
             return `
                 <div class="report-card">
                     <div class="priority-stripe stripe-${r.urgency}"></div>
@@ -668,6 +689,9 @@
                         </div>
                         <span class="report-time">${dateStr}</span>
                     </div>
+                    
+                    ${r.title ? `<h3 style="font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -0.3px; color: var(--text-primary);">${escapeHTML(r.title)}</h3>` : ''}
+                    
                     <p class="report-desc">${escapeHTML(r.description)}</p>
                     
                     ${missingBox}
@@ -676,9 +700,10 @@
                         <div class="meta-item">📍 <strong>Ubicación:</strong> ${escapeHTML(r.location_text)}</div>
                         ${r.lat && r.lng ? `<div class="meta-item">🌐 <strong>GPS:</strong> ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</div>` : ''}
                         ${r.contact_info ? `<div class="meta-item">📞 <strong>Contacto:</strong> ${escapeHTML(r.contact_info)}</div>` : ''}
+                        ${sourcesHTML}
                     </div>
 
-                    <button class="btn btn-secondary" onclick="resolveReport('${r.id}')" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; height: auto;">
+                    <button class="btn btn-secondary" onclick="resolveReport('${r.id}')" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; height: auto; margin-top: 0.25rem;">
                         ✓ Marcar como Resuelto
                     </button>
                 </div>
@@ -711,6 +736,7 @@
         
         const type = typeSelect.value;
         const urgency = urgencySelect.value;
+        const title = document.getElementById('title').value || null;
         const description = document.getElementById('description').value;
         const location_text = document.getElementById('location_text').value;
         const latVal = document.getElementById('lat').value;
@@ -720,6 +746,7 @@
         const payload = {
             type,
             urgency,
+            title,
             description,
             location_text,
             lat: latVal ? parseFloat(latVal) : null,
@@ -773,7 +800,7 @@
     // Sincronizar por IA (Gemini + Grounding)
     btnSyncIA.addEventListener('click', async () => {
         btnSyncIA.disabled = true;
-        btnSyncIA.textContent = '🤖 Buscando alertas en la web con Gemini...';
+        btnSyncIA.textContent = '🤖 Buscando alertas y enlaces en la web con Gemini...';
         showToast('Gemini está rastreando portales web y redes sociales. Esto puede tomar unos segundos...', 'info');
 
         try {
@@ -786,7 +813,7 @@
             btnSyncIA.textContent = '🤖 Rastrear Web y Twitter con Gemini';
 
             if (data.success) {
-                showToast(`Sincronización completada. Se capturaron ${data.synchronized_records} alertas potenciales.`, 'success');
+                showToast(`Sincronización completada. Se capturaron ${data.synchronized_records} alertas potenciales con sus fuentes.`, 'success');
                 loadReports();
             } else {
                 showToast(`Error de sincronización: ${data.error}`, 'error');
