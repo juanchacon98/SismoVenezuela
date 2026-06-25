@@ -170,21 +170,42 @@ app.post('/api/sync-external', async (req, res) => {
       ai = new GoogleGenAI({}); // Inicialización vacía para cargar de forma automática Vertex AI
     }
 
-    console.log('Iniciando rastreo web con IA y Google Search Grounding...');
+    console.log('Paso 1: Rastreo web con Google Search Grounding (Texto libre)...');
 
-    const prompt = `
-      Busca reportes recientes en Twitter, X y portales de noticias oficiales sobre emergencias médicas, 
-      solicitudes de suministros, colapsos estructurales o personas desaparecidas causadas por el terremoto 
-      de magnitud 7.2 en Caracas, Venezuela.
-      Extrae exclusivamente información relevante que incluya referencias físicas de ubicación e incidentes reales.
-      Devuelve los datos estrictamente mapeados en un arreglo conforme al esquema JSON solicitado.
+    const searchPrompt = `
+      Busca reportes recientes en Twitter, X y portales de noticias sobre emergencias médicas, 
+      solicitudes de suministros, colapsos de estructuras o personas desaparecidas causadas por el reciente 
+      terremoto de magnitud 7.2 en Caracas, Venezuela.
+      Encuentra incidentes específicos con sus descripciones, ubicaciones físicas detalladas, coordenadas 
+      de GPS si se mencionan, nombres de personas desaparecidas y contactos.
+      Escribe un reporte de texto detallado resumiendo todos los incidentes encontrados.
     `;
 
-    const response = await ai.models.generateContent({
+    const searchResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: searchPrompt,
       config: {
-        tools: [{ googleSearch: {} }],
+        tools: [{ googleSearch: {} }] // Grounding activo en la búsqueda libre
+      }
+    });
+
+    const rawContent = searchResponse.text;
+    console.log('Paso 2: Conversión a JSON estructurado (sin herramienta de búsqueda)...');
+
+    const structurePrompt = `
+      Analiza el siguiente texto que contiene reportes de emergencia recopilados de la web y redes sociales:
+      
+      "${rawContent.replace(/"/g, '\\"')}"
+      
+      Extrae los incidentes válidos y devuélvelos estrictamente estructurados conforme al esquema JSON solicitado.
+      Filtra y extrae solo incidentes reales con ubicaciones específicas en Caracas.
+      Si no se describen incidentes válidos, devuelve un arreglo vacío [].
+    `;
+
+    const structureResponse = await ai.models.generateContent({
+      model: 'gemini-2.5-flash', // Ejecución directa para estructuración JSON
+      contents: structurePrompt,
+      config: {
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'ARRAY',
@@ -220,8 +241,8 @@ app.post('/api/sync-external', async (req, res) => {
       }
     });
 
-    const parsedReports = JSON.parse(response.text);
-    console.log(`Gemini obtuvo ${parsedReports.length} reportes de la web. Ejecutando de-duplicación...`);
+    const parsedReports = JSON.parse(structureResponse.text);
+    console.log(`Gemini estructuró ${parsedReports.length} reportes de la web. Iniciando de-duplicación...`);
 
     const results = [];
     for (const r of parsedReports) {
