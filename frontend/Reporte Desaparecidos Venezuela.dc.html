@@ -1034,6 +1034,15 @@
         .status-degradado { background-color: var(--color-moderate); box-shadow: 0 0 6px var(--color-moderate); }
         .status-caido { background-color: var(--color-critical); box-shadow: 0 0 6px var(--color-critical); }
         .status-sin_datos { background-color: var(--text-secondary); }
+
+        /* ESTILOS DEL MAPA SVG DE TOPOLOGÍA GEOGRÁFICA */
+        .map-tile:hover circle {
+            transform: scale(1.15);
+            filter: brightness(1.2);
+        }
+        .map-tile circle {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
     </style>
 </head>
 <body>
@@ -1327,8 +1336,33 @@
                 </div>
 
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.45;">
-                    Visualiza en tiempo real el estado de conectividad a internet de los estados del país. Los datos se actualizan automáticamente midiendo la latencia de red de los usuarios conectados. Haz clic en cualquier estado para filtrar los reportes.
+                    Visualiza en tiempo real el estado de conectividad a internet de los estados del país. Los datos se actualizan automáticamente midiendo la latencia de red de los usuarios conectados. Haz clic en cualquier estado (en la cuadrícula o en el mapa de topología) para filtrar los reportes.
                 </p>
+
+                <!-- Mapa de Cobertura Red Topología SVG -->
+                <div id="connectivityMapContainer" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; overflow-x: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                    <!-- Mapa SVG se inyecta aquí -->
+                </div>
+
+                <!-- Panel de Comparación de Velocidad y Latencia con Speedtest -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                    <div style="border-right: 1px solid var(--border-color); padding-right: 0.5rem;">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.3rem;">
+                            📊 Línea Base Speedtest Mobile
+                        </div>
+                        <div>Velocidad Descarga: <strong style="color: var(--text-primary);">~11.2 Mbps</strong></div>
+                        <div>Latencia de Referencia: <strong style="color: var(--text-primary);">~42 ms</strong></div>
+                        <a href="https://www.speedtest.net/global-index/venezuela#mobile" target="_blank" style="color: var(--color-info); text-decoration: underline; font-size: 0.75rem; display: inline-block; margin-top: 0.25rem;">Ver Index Global ↗</a>
+                    </div>
+                    <div style="padding-left: 0.5rem;">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.3rem;">
+                            📡 Telemetría Activa (En Vivo)
+                        </div>
+                        <div>Latencia Promedio: <strong id="liveAvgLatency" style="color: var(--text-primary);">Calculando...</strong></div>
+                        <div>Calidad de Conexión: <strong id="liveQualityLabel" style="color: var(--text-primary);">Calculando...</strong></div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Basado en pings del usuario</div>
+                    </div>
+                </div>
 
                 <!-- Cuadrícula de Estados con Estado de Red -->
                 <div class="connectivity-grid" id="connectivityGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
@@ -1365,6 +1399,22 @@
                         <option value="Yaracuy">Yaracuy</option>
                         <option value="Zulia">Zulia</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- SISMOS RECIENTES (USGS) -->
+            <div class="card" id="seismicCard">
+                <div class="card-title">
+                    <span>Sismos Recientes en Venezuela (USGS)</span>
+                    <span id="seismicStatusBadge" style="background: rgba(37, 99, 235, 0.15); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 99px; color: var(--color-info); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        📡 Monitoreo Sísmico Activo
+                    </span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.45;">
+                    Últimos sismos registrados en la región de Venezuela por el Servicio Geológico de EE. UU. (USGS).
+                </p>
+                <div class="seismic-list" id="seismicList" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 300px; overflow-y: auto; padding-right: 0.25rem;">
+                    <div style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Cargando sismos recientes...</div>
                 </div>
             </div>
 
@@ -1406,6 +1456,7 @@
 <script>
     // Configuración inicial del Cliente API
     const API_BASE = window.location.origin;
+    let gaMetricsData = null;
 
     // Elementos del DOM
     const reportForm = document.getElementById('reportForm');
@@ -2379,9 +2430,11 @@
     loadCollectionCenters();
     loadMissingSyncStatus();
     initConnectivityMonitoring();
+    loadRecentSeismicEvents();
     scheduleVisibleRefresh(loadReports, 60000);
     scheduleVisibleRefresh(loadCollectionCenters, 120000);
     scheduleVisibleRefresh(loadMissingSyncStatus, 300000);
+    scheduleVisibleRefresh(loadRecentSeismicEvents, 60000);
 
     let currentStateFilter = null;
     const connectivityGrid = document.getElementById('connectivityGrid');
@@ -2436,19 +2489,175 @@
         }
     }
 
+    async function loadGA4Metrics() {
+        try {
+            // Intentar cargar métricas de GA4 en tiempo real desde el subdominio del Worker
+            const res = await fetch('https://api.vnzl.technolink.tech/api/analytics-metrics');
+            const responseData = await res.json();
+            if (responseData.success) {
+                gaMetricsData = responseData.data;
+            }
+        } catch (err) {
+            console.warn('No se pudieron cargar métricas de GA4 desde el Worker:', err.message);
+        }
+    }
+
     async function loadConnectivityStatus() {
         if (!connectivityGrid) return;
         
         try {
+            // Cargar primero métricas de GA4 en paralelo si están disponibles
+            await loadGA4Metrics();
+
             const res = await fetch(`${API_BASE}/api/connectivity-status`);
             const responseData = await res.json();
             
             if (responseData.success) {
                 renderConnectivityGrid(responseData.data);
+                renderConnectivityMap(responseData.data);
+                
+                // Calcular promedio de latencia en vivo para el panel comparativo
+                const activeLatencies = responseData.data.filter(item => item.avg_latency !== null).map(item => item.avg_latency);
+                const liveAvgLatencyEl = document.getElementById('liveAvgLatency');
+                const liveQualityLabelEl = document.getElementById('liveQualityLabel');
+                
+                if (liveAvgLatencyEl && liveQualityLabelEl) {
+                    if (activeLatencies.length > 0) {
+                        const avg = Math.round(activeLatencies.reduce((sum, val) => sum + val, 0) / activeLatencies.length);
+                        liveAvgLatencyEl.textContent = `~${avg} ms`;
+                        
+                        if (avg < 100) {
+                            liveQualityLabelEl.textContent = '🟢 Excelente (Banda Ancha)';
+                            liveQualityLabelEl.style.color = 'var(--color-success)';
+                        } else if (avg < 500) {
+                            liveQualityLabelEl.textContent = '🟡 Aceptable (3G / 4G)';
+                            liveQualityLabelEl.style.color = 'var(--color-moderate)';
+                        } else if (avg < 2000) {
+                            liveQualityLabelEl.textContent = '🟠 Crítico (2G Inestable)';
+                            liveQualityLabelEl.style.color = 'var(--color-high)';
+                        } else {
+                            liveQualityLabelEl.textContent = '🔴 Caído (Sin Salida)';
+                            liveQualityLabelEl.style.color = 'var(--color-critical)';
+                        }
+                    } else {
+                        liveAvgLatencyEl.textContent = 'Sin datos';
+                        liveQualityLabelEl.textContent = '⚪ Sin telemetría';
+                        liveQualityLabelEl.style.color = 'var(--text-secondary)';
+                    }
+                }
             }
         } catch (err) {
             console.error('Error al cargar estado de conectividad nacional:', err.message);
         }
+    }
+
+    function renderConnectivityMap(statusData) {
+        const mapContainer = document.getElementById('connectivityMapContainer');
+        if (!mapContainer) return;
+
+        // Mapeo de estados de Venezuela con siglas y coordenadas de red geográficas
+        const stateGrid = {
+            "Distrito Capital": { abbr: "DCA", x: 320, y: 130 },
+            "Amazonas": { abbr: "AMA", x: 290, y: 400 },
+            "Anzoátegui": { abbr: "ANZ", x: 420, y: 210 },
+            "Apure": { abbr: "APU", x: 230, y: 290 },
+            "Aragua": { abbr: "ARA", x: 300, y: 150 },
+            "Barinas": { abbr: "BAR", x: 160, y: 240 },
+            "Bolívar": { abbr: "BOL", x: 460, y: 320 },
+            "Carabobo": { abbr: "CAR", x: 270, y: 150 },
+            "Cojedes": { abbr: "COJ", x: 260, y: 200 },
+            "Delta Amacuro": { abbr: "DEL", x: 540, y: 200 },
+            "Falcón": { abbr: "FAL", x: 190, y: 80 },
+            "Guárico": { abbr: "GUA", x: 320, y: 220 },
+            "Lara": { abbr: "LAR", x: 190, y: 150 },
+            "Mérida": { abbr: "MER", x: 110, y: 220 },
+            "Miranda": { abbr: "MIR", x: 350, y: 140 },
+            "Monagas": { abbr: "MON", x: 490, y: 180 },
+            "Nueva Esparta": { abbr: "NES", x: 460, y: 100 },
+            "Portuguesa": { abbr: "POR", x: 210, y: 210 },
+            "Sucre": { abbr: "SUC", x: 470, y: 130 },
+            "Táchira": { abbr: "TAC", x: 80, y: 250 },
+            "Trujillo": { abbr: "TRU", x: 140, y: 200 },
+            "La Guaira": { abbr: "LAG", x: 320, y: 115 },
+            "Yaracuy": { abbr: "YAR", x: 230, y: 140 },
+            "Zulia": { abbr: "ZUL", x: 120, y: 120 }
+        };
+
+        const links = [
+            ["Zulia", "Falcón"], ["Zulia", "Lara"], ["Zulia", "Trujillo"],
+            ["Táchira", "Mérida"], ["Mérida", "Trujillo"], ["Trujillo", "Portuguesa"],
+            ["Barinas", "Apure"], ["Barinas", "Portuguesa"], ["Falcón", "Yaracuy"],
+            ["Lara", "Yaracuy"], ["Yaracuy", "Carabobo"], ["Portuguesa", "Cojedes"],
+            ["Cojedes", "Carabobo"], ["Carabobo", "Aragua"], ["Aragua", "Distrito Capital"],
+            ["Aragua", "Guárico"], ["Distrito Capital", "La Guaira"], ["Distrito Capital", "Miranda"],
+            ["Miranda", "Anzoátegui"], ["Guárico", "Anzoátegui"], ["Apure", "Guárico"],
+            ["Apure", "Amazonas"], ["Amazonas", "Bolívar"], ["Anzoátegui", "Bolívar"],
+            ["Anzoátegui", "Sucre"], ["Anzoátegui", "Monagas"], ["Sucre", "Monagas"],
+            ["Monagas", "Delta Amacuro"], ["Nueva Esparta", "Sucre"], ["Delta Amacuro", "Bolívar"]
+        ];
+
+        // Construir SVG de topología geográfica
+        let svgContent = `
+            <svg viewBox="0 0 600 440" style="width: 100%; height: auto; max-width: 480px; margin: 0 auto; display: block;">
+        `;
+
+        // 1. Dibujar enlaces de red
+        links.forEach(([from, to]) => {
+            const p1 = stateGrid[from];
+            const p2 = stateGrid[to];
+            if (p1 && p2) {
+                svgContent += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="var(--border-color)" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.35" style="pointer-events: none;" />`;
+            }
+        });
+
+        // Helper para bordes y rellenos de estado
+        function getStatusColors(status, isActive) {
+            let border = 'var(--text-secondary)';
+            let fill = 'rgba(120, 120, 120, 0.05)';
+            
+            if (status === 'estable') {
+                border = '#10b981';
+                fill = isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.15)';
+            } else if (status === 'degradado') {
+                border = '#eab308';
+                fill = isActive ? 'rgba(234, 179, 8, 0.3)' : 'rgba(234, 179, 8, 0.15)';
+            } else if (status === 'caido') {
+                border = '#ef4444';
+                fill = isActive ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.15)';
+            }
+            
+            if (isActive) border = 'var(--color-info)';
+            return { border, fill };
+        }
+
+        // 2. Dibujar nodos
+        statusData.forEach(item => {
+            const coord = stateGrid[item.state];
+            if (!coord) return;
+
+            const isActive = currentStateFilter === item.state;
+            const colors = getStatusColors(item.status, isActive);
+            const strokeWidth = isActive ? '3.5' : '1.5';
+            const radius = isActive ? 16 : 14;
+
+            const gaDataForState = gaMetricsData ? gaMetricsData[item.state] : null;
+            const activeUsersText = gaDataForState ? `\n👥 Usuarios Activos GA4: ${gaDataForState.active_users}` : '';
+
+            svgContent += `
+                <g class="map-tile" onclick="toggleStateFilter('${escapeHTML(item.state)}')" style="cursor: pointer;">
+                    <title>${escapeHTML(item.state)}: ${item.status.toUpperCase()} (Latencia: ${item.avg_latency || 'N/A'}ms)${activeUsersText}</title>
+                    <circle cx="${coord.x}" cy="${coord.y}" r="${radius}" 
+                            fill="${colors.fill}" stroke="${colors.border}" stroke-width="${strokeWidth}" 
+                            style="transform-origin: ${coord.x}px ${coord.y}px;" />
+                    <text x="${coord.x}" y="${coord.y + 3}" 
+                          font-family="system-ui, sans-serif" font-size="8.5" font-weight="900" 
+                          text-anchor="middle" fill="var(--text-primary)" style="pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">${coord.abbr}</text>
+                </g>
+            `;
+        });
+
+        svgContent += `</svg>`;
+        mapContainer.innerHTML = svgContent;
     }
 
     function renderConnectivityGrid(statusData) {
@@ -2460,13 +2669,18 @@
             const latencyText = item.avg_latency !== null ? `${item.avg_latency} ms` : '--';
             const countText = item.report_count > 0 ? `(${item.report_count} pings)` : '';
             
+            // Integrar métricas de GA4 en la lista
+            const gaDataForState = gaMetricsData ? gaMetricsData[item.state] : null;
+            const gaText = gaDataForState ? `<span style="font-size: 0.7rem; opacity: 0.8; margin-left: auto; color: var(--color-info); font-weight: 700;">👥 ${gaDataForState.active_users}</span>` : '';
+            
             return `
                 <div class="${cardClass}" onclick="toggleStateFilter('${escapeHTML(item.state)}')" title="Filtrar incidentes en ${escapeHTML(item.state)}">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; width: 100%;">
                         <span class="status-indicator status-${item.status}"></span>
                         <span>${escapeHTML(item.state)}</span>
+                        ${gaText}
                     </div>
-                    <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary);">
+                    <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary); margin-top: 0.25rem;">
                         <div>${latencyText}</div>
                         <div style="font-size: 0.65rem; opacity: 0.7;">${countText}</div>
                     </div>
@@ -2495,6 +2709,75 @@
             'info'
         );
     };
+
+    // USGS Seismic Events Monitoring
+    async function loadRecentSeismicEvents() {
+        const seismicList = document.getElementById('seismicList');
+        if (!seismicList) return;
+        
+        try {
+            // Consulta de sismos en el mes actual en el cuadrante de Venezuela (magnitud >= 2.0)
+            const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2026-06-01&minmagnitude=2.0&minlatitude=5&maxlatitude=13&minlongitude=-73&maxlongitude=-59';
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            if (!data.features || data.features.length === 0) {
+                seismicList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No se detectaron sismos recientes en la zona de Venezuela.</div>`;
+                return;
+            }
+            
+            // Ordenar de forma descendente por hora del suceso
+            const sortedEvents = data.features.sort((a, b) => b.properties.time - a.properties.time);
+            
+            seismicList.innerHTML = sortedEvents.map(e => {
+                const props = e.properties;
+                const date = new Date(props.time).toLocaleString('es-VE', { timeZone: 'America/Caracas' });
+                const coords = e.geometry.coordinates;
+                const mag = props.mag.toFixed(1);
+                
+                // Establecer clase y colores según la magnitud
+                let alertColor = 'var(--text-secondary)';
+                let alertBg = 'rgba(255, 255, 255, 0.02)';
+                let borderStyle = '1px solid var(--border-color)';
+                
+                if (props.mag >= 5.0) {
+                    alertColor = 'var(--color-critical)';
+                    alertBg = 'rgba(239, 68, 68, 0.06)';
+                    borderStyle = '1px solid var(--color-critical)';
+                } else if (props.mag >= 4.0) {
+                    alertColor = 'var(--color-high)';
+                    alertBg = 'rgba(249, 115, 22, 0.06)';
+                    borderStyle = '1px solid var(--color-high)';
+                } else if (props.mag >= 3.0) {
+                    alertColor = 'var(--color-moderate)';
+                    alertBg = 'rgba(234, 179, 8, 0.06)';
+                    borderStyle = '1px solid var(--color-moderate)';
+                }
+                
+                return `
+                    <div style="background: ${alertBg}; border: ${borderStyle}; border-radius: 8px; padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; transition: transform 0.15s;" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='none'">
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                ${escapeHTML(props.place)}
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary);">
+                                📅 ${date} | 📍 ${coords[1].toFixed(4)}, ${coords[0].toFixed(4)} | ⬇️ Prof: ${coords[2].toFixed(1)} km
+                            </div>
+                        </div>
+                        <div style="text-align: right; min-width: 60px; flex-shrink: 0;">
+                            <div style="font-size: 1.15rem; font-weight: 900; color: ${alertColor};">
+                                M ${mag}
+                            </div>
+                            <a href="${props.url}" target="_blank" style="font-size: 0.65rem; color: var(--color-info); text-decoration: underline;">Detalles ↗</a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('Error al conectar con la API de sismos USGS:', err.message);
+            seismicList.innerHTML = `<div style="text-align: center; color: var(--color-critical); padding: 1.5rem;">Error de conexión con el servicio de alertas sísmicas (USGS).</div>`;
+        }
+    }
 </script>
 
 </body>
