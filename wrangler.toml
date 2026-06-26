@@ -7,7 +7,7 @@ compatibility_date = "2024-03-01"
 
 # 1. Rutas y subdominios personalizados
 [[routes]]
-pattern = "api.vnzl.technolink.tech/*"
+pattern = "api.vnzl.technolink.tech"
 custom_domain = true
 
 # 2. Variables de entorno públicas (no sensibles)

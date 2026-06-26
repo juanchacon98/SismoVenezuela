@@ -1218,12 +1218,17 @@
                 <div class="import-summary" id="missingSyncStatus" style="display: block; margin-top: 0; margin-bottom: 1rem;">
                     Consultando estado de sincronización...
                 </div>
-                <div class="external-actions">
-                    <a class="btn btn-secondary" href="https://desaparecidosterremotovenezuela.com/" target="_blank" rel="noopener noreferrer">
-                        Abrir sitio original
-                    </a>
-                    <button type="button" class="btn btn-secondary" id="btnToggleExternalFrame">
-                        Ver sitio original aquí
+                <div class="external-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <a class="btn btn-secondary" href="https://desaparecidosterremotovenezuela.com/" target="_blank" rel="noopener noreferrer" style="flex: 1;">
+                            Abrir sitio original
+                        </a>
+                        <button type="button" class="btn btn-secondary" id="btnToggleExternalFrame" style="flex: 1;">
+                            Ver sitio original aquí
+                        </button>
+                    </div>
+                    <button type="button" class="btn" id="btnScrapeMissing" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; width: 100%;">
+                        🤖 Sincronizar Fuente Externa con IA
                     </button>
                 </div>
                 <div class="external-frame-wrap" id="externalFrameWrap">
@@ -1488,6 +1493,7 @@
     const btnImportMissing = document.getElementById('btnImportMissing');
     const missingImportSummary = document.getElementById('missingImportSummary');
     const missingSyncStatus = document.getElementById('missingSyncStatus');
+    const btnScrapeMissing = document.getElementById('btnScrapeMissing');
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toastMessage');
 
@@ -1717,6 +1723,53 @@
             btnImportMissing.textContent = 'Importar y quitar duplicados';
             missingImportSummary.innerHTML = '<strong>Error:</strong> No se pudo conectar con el servidor.';
             showToast('Error de conexión al importar.', 'error');
+        }
+    });
+
+    btnScrapeMissing.addEventListener('click', async () => {
+        btnScrapeMissing.disabled = true;
+        const originalText = btnScrapeMissing.textContent;
+        btnScrapeMissing.textContent = 'Sincronizando con IA...';
+        missingImportSummary.style.display = 'block';
+        missingImportSummary.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="pulse" style="display: inline-block; width: 8px; height: 8px; background: #7c3aed; border-radius: 50%;"></span>
+                <span>Sincronizando desaparecidosterremotovenezuela.com vía ScrapeGraphAI + Gemini (esto puede tardar de 25 a 45 segundos)...</span>
+            </div>
+        `;
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/import/missing-persons/sync`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            
+            btnScrapeMissing.disabled = false;
+            btnScrapeMissing.textContent = originalText;
+            
+            if (!data.success) {
+                const errMsg = data.error || (data.summary && data.summary.error) || 'No se pudo completar la sincronización.';
+                missingImportSummary.innerHTML = `<strong>Error de Sincronización:</strong> ${escapeHTML(errMsg)}`;
+                showToast('Fallo en la sincronización con IA.', 'error');
+                loadMissingSyncStatus();
+                return;
+            }
+            
+            const summary = data.summary || {};
+            missingImportSummary.innerHTML = `
+                <strong>Sincronización con IA Completada.</strong><br>
+                Recibidos: ${summary.received ?? 0}. Nuevos: ${summary.created ?? 0}. Duplicados fusionados: ${summary.merged_duplicates ?? 0}. Localizados omitidos: ${summary.skipped_resolved ?? 0}. Errores: ${summary.errors ?? 0}.
+            `;
+            showToast('Base externa sincronizada con IA.', 'success');
+            loadReports();
+            loadMissingSyncStatus();
+        } catch (error) {
+            console.error(error);
+            btnScrapeMissing.disabled = false;
+            btnScrapeMissing.textContent = originalText;
+            missingImportSummary.innerHTML = '<strong>Error:</strong> No se pudo comunicar con el servidor para iniciar la sincronización.';
+            showToast('Error de red al iniciar sincronización.', 'error');
+            loadMissingSyncStatus();
         }
     });
 

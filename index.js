@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { spawn } from 'child_process';
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ const port = process.env.PORT || 8080;
 const MISSING_PERSONS_SOURCE_NAME = process.env.MISSING_PERSONS_SOURCE_NAME || 'desaparecidosterremotovenezuela.com';
 const MISSING_PERSONS_SYNC_URL = normalizeEnvUrl(process.env.MISSING_PERSONS_SYNC_URL);
 const MISSING_PERSONS_SYNC_INTERVAL_MS = Math.max(
-  parseInt(process.env.MISSING_PERSONS_SYNC_INTERVAL_MS, 10) || 10 * 60 * 1000,
+  parseInt(process.env.MISSING_PERSONS_SYNC_INTERVAL_MS, 10) || 6 * 60 * 60 * 1000,
   10 * 60 * 1000
 );
 const MISSING_PERSONS_SYNC_PAGE_SIZE = Math.min(
@@ -38,12 +39,12 @@ const pool = new pg.Pool({
 });
 
 const missingPersonsSyncState = {
-  enabled: Boolean(MISSING_PERSONS_SYNC_URL),
+  enabled: true,
   in_progress: false,
   last_run_at: null,
-  next_run_at: MISSING_PERSONS_SYNC_URL ? new Date(Date.now() + MISSING_PERSONS_SYNC_INTERVAL_MS).toISOString() : null,
-  last_status: MISSING_PERSONS_SYNC_URL ? 'scheduled' : 'disabled',
-  last_error: MISSING_PERSONS_SYNC_URL ? null : 'Configura MISSING_PERSONS_SYNC_URL con un endpoint/export autorizado.',
+  next_run_at: new Date(Date.now() + 15000).toISOString(),
+  last_status: 'scheduled',
+  last_error: null,
   last_summary: null,
   etag: null,
   last_modified: null,
@@ -107,7 +108,7 @@ function normalizeImportedMissingPerson(raw) {
   const item = raw && typeof raw === 'object' ? raw : {};
   const sourceId = normalizeOptionalText(item.id);
   const fullName = normalizeOptionalText(item.nombre || item.full_name || item.name);
-  const locationText = normalizeOptionalText(item.ubicacion || item.location_text || item.location);
+  const locationText = normalizeOptionalText(item.ubicacion || item.location_text || item.location || item.last_seen_location);
   const description = normalizeOptionalText(item.descripcion || item.description);
   const contactInfo = normalizeOptionalText(item.contacto || item.contact_info || item.contact);
   const status = normalizeOptionalText(item.estado || item.status) || 'sin-contacto';
@@ -395,8 +396,48 @@ function computeNextSyncDelay() {
   return MISSING_PERSONS_SYNC_INTERVAL_MS * multiplier;
 }
 
+function runPythonScraperHelper() {
+  return new Promise((resolve, reject) => {
+    const pythonScriptPath = path.join(__dirname, 'database', 'scrape_missing.py');
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const env = { ...process.env };
+    
+    const child = spawn(pythonCmd, [pythonScriptPath], { env });
+    
+    let stdoutData = '';
+    let stderrData = '';
+    
+    child.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+    
+    child.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`El scraper de Python falló con código ${code}. Detalles: ${stderrData.slice(-300)}`));
+      }
+      
+      try {
+        const parsedOutput = JSON.parse(stdoutData);
+        if (!parsedOutput.success) {
+          return reject(new Error(parsedOutput.error || 'El script del scraper reportó un fallo sin detalles.'));
+        }
+        resolve(parsedOutput.results);
+      } catch (err) {
+        reject(new Error(`Error al procesar la salida del scraper: ${err.message}`));
+      }
+    });
+    
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 async function runMissingPersonsSync(reason = 'scheduled') {
-  if (!MISSING_PERSONS_SYNC_URL) return null;
   if (missingPersonsSyncState.in_progress) {
     return { skipped: true, reason: 'sync_in_progress' };
   }
@@ -407,23 +448,30 @@ async function runMissingPersonsSync(reason = 'scheduled') {
   missingPersonsSyncState.last_error = null;
 
   try {
-    const external = await fetchMissingPersonsFromConfiguredSource();
-    if (external.notModified) {
-      missingPersonsSyncState.last_status = 'not_modified';
-      missingPersonsSyncState.last_summary = {
-        reason,
-        received: 0,
-        created: 0,
-        merged_duplicates: 0,
-        skipped_resolved: 0,
-        skipped_invalid: 0,
-        errors: 0
-      };
-      missingPersonsSyncState.consecutive_failures = 0;
-      return missingPersonsSyncState.last_summary;
+    let items = [];
+    if (MISSING_PERSONS_SYNC_URL) {
+      const external = await fetchMissingPersonsFromConfiguredSource();
+      if (external.notModified) {
+        missingPersonsSyncState.last_status = 'not_modified';
+        missingPersonsSyncState.last_summary = {
+          reason,
+          received: 0,
+          created: 0,
+          merged_duplicates: 0,
+          skipped_resolved: 0,
+          skipped_invalid: 0,
+          errors: 0
+        };
+        missingPersonsSyncState.consecutive_failures = 0;
+        return missingPersonsSyncState.last_summary;
+      }
+      items = external.items;
+    } else {
+      console.log('Ejecutando scraper de Python para sincronización automática...');
+      items = await runPythonScraperHelper();
     }
 
-    const summary = await importMissingPersonsBatch(external.items, {
+    const summary = await importMissingPersonsBatch(items, {
       source: MISSING_PERSONS_SOURCE_NAME
     });
 
@@ -453,18 +501,18 @@ async function runMissingPersonsSync(reason = 'scheduled') {
 }
 
 function startMissingPersonsSyncScheduler() {
-  if (!MISSING_PERSONS_SYNC_URL) {
-    console.log('Sincronización externa de desaparecidos desactivada: falta MISSING_PERSONS_SYNC_URL.');
-    return;
-  }
-
   const tick = async () => {
     await runMissingPersonsSync('scheduled');
     setTimeout(tick, computeNextSyncDelay()).unref();
   };
 
   setTimeout(tick, 15000).unref();
-  console.log(`Sincronización externa de desaparecidos activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 60000)} min mínimo.`);
+  
+  if (MISSING_PERSONS_SYNC_URL) {
+    console.log(`Sincronización externa de desaparecidos activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 60000)} min vía URL.`);
+  } else {
+    console.log(`Sincronización externa activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 3600000)} horas vía ScrapeGraphAI.`);
+  }
 }
 
 // Endpoint: Listar centros de acopio activos para el mapa comunitario (Acceso Público)
@@ -628,19 +676,49 @@ app.get('/api/import/missing-persons/status', (req, res) => {
 });
 
 app.post('/api/import/missing-persons/sync', async (req, res) => {
-  if (!MISSING_PERSONS_SYNC_URL) {
-    return res.status(400).json({
-      success: false,
-      error: 'Sincronización desactivada. Configura MISSING_PERSONS_SYNC_URL con un endpoint/export autorizado.'
-    });
-  }
-
   const summary = await runMissingPersonsSync('manual');
   res.json({
     success: !summary?.error,
     summary,
     sync: missingPersonsSyncState
   });
+});
+
+// Endpoint: Scrapear personas desaparecidas vía ScrapeGraphAI + Gemini (Mantenido para compatibilidad)
+app.post('/api/scrape-missing', async (req, res) => {
+  console.log('Iniciando raspado con ScrapeGraphAI via endpoint...');
+  try {
+    const rawItems = await runPythonScraperHelper();
+    if (!rawItems || rawItems.length === 0) {
+      return res.status(200).json({
+        success: true,
+        received: 0,
+        created: 0,
+        merged_duplicates: 0,
+        skipped_resolved: 0,
+        skipped_invalid: 0,
+        errors: 0,
+        details: [],
+        message: 'No se encontraron personas desaparecidas nuevas que procesar en la página.'
+      });
+    }
+    
+    const summary = await importMissingPersonsBatch(rawItems, {
+      includeResolved: false,
+      source: 'desaparecidosterremotovenezuela.com'
+    });
+    
+    return res.status(200).json({
+      success: true,
+      ...summary
+    });
+  } catch (error) {
+    console.error('Error al ejecutar el scraper por API:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Endpoint: Registrar telemetría de conectividad (Acceso Público en background)
