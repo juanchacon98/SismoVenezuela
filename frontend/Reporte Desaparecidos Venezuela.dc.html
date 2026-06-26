@@ -1457,6 +1457,7 @@
     // Configuración inicial del Cliente API
     const API_BASE = window.location.origin;
     let gaMetricsData = null;
+    let lastConnectivityData = null;
 
     // Elementos del DOM
     const reportForm = document.getElementById('reportForm');
@@ -2506,13 +2507,21 @@
         if (!connectivityGrid) return;
         
         try {
-            // Cargar primero métricas de GA4 en paralelo si están disponibles
-            await loadGA4Metrics();
+            // Cargar métricas de GA4 en segundo plano sin bloquear el renderizado principal
+            loadGA4Metrics().then(() => {
+                // Si el renderizado principal ya terminó, volver a pintar con los datos de GA4 actualizados
+                if (lastConnectivityData) {
+                    renderConnectivityGrid(lastConnectivityData);
+                    renderConnectivityMap(lastConnectivityData);
+                }
+            }).catch(err => console.warn('Error en segundo plano al cargar GA4:', err.message));
 
             const res = await fetch(`${API_BASE}/api/connectivity-status`);
             const responseData = await res.json();
             
             if (responseData.success) {
+                lastConnectivityData = responseData.data; // Guardar última respuesta
+                
                 renderConnectivityGrid(responseData.data);
                 renderConnectivityMap(responseData.data);
                 
