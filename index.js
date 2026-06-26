@@ -405,8 +405,12 @@ async function runPythonScraperHelper() {
 
   let ai;
   if (process.env.GEMINI_API_KEY) {
+    // Limpiar variables de Vertex AI que pueden interferir con el modo API Key
+    delete process.env.GOOGLE_GENAI_USE_ENTERPRISE;
+    delete process.env.GOOGLE_CLOUD_PROJECT;
+    delete process.env.GOOGLE_CLOUD_LOCATION;
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  } else {
+  } else if (process.env.GCP_PROJECT_ID) {
     process.env.GOOGLE_GENAI_USE_ENTERPRISE = 'true';
     process.env.GOOGLE_CLOUD_PROJECT = process.env.GCP_PROJECT_ID || 'praxis-ia-498305';
     process.env.GOOGLE_CLOUD_LOCATION = 'us-central1';
@@ -1014,6 +1018,10 @@ app.post('/api/sync-external', async (req, res) => {
     let ai;
     // Autenticación inteligente: Usa API Key local o Vertex AI en GCP (Enterprise)
     if (process.env.GEMINI_API_KEY) {
+      // Limpiar variables de Vertex AI que pueden interferir con el modo API Key
+      delete process.env.GOOGLE_GENAI_USE_ENTERPRISE;
+      delete process.env.GOOGLE_CLOUD_PROJECT;
+      delete process.env.GOOGLE_CLOUD_LOCATION;
       ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     } else if (process.env.GCP_PROJECT_ID) {
       // Configurar variables necesarias para que el SDK de GenAI active el modo Vertex Enterprise
