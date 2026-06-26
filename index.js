@@ -1051,78 +1051,83 @@ app.post('/api/sync-external', async (req, res) => {
       }
     });
 
-    const rawContent = searchResponse.text;
-    console.log('Paso 2: Conversión a JSON estructurado (sin herramienta de búsqueda)...');
+    const rawContent = searchResponse.text || '';
+    if (!rawContent.trim()) {
+      console.warn('La búsqueda web no devolvió contenido. Retornando sin sincronizar.');
+      return res.json({ success: true, synchronized_records: 0, details: [] });
+    }
+    console.log(`Paso 1 completado (${rawContent.length} chars). Paso 2: Conversión a JSON estructurado...`);
 
-    const structurePrompt = `
-      Analiza el siguiente texto que contiene reportes de emergencia recopilados de la web y redes sociales:
-      
-      "${rawContent.replace(/"/g, '\\"')}"
-      
-      Extrae los incidentes válidos y devuélvelos estrictamente estructurados conforme al esquema JSON solicitado.
-      Filtra y extrae solo incidentes reales con ubicaciones específicas dentro de los estados de Venezuela.
-      Determina a qué estado de Venezuela corresponde la ubicación física e indícalo en el campo "state" (elige uno de los 24 estados válidos).
-      Asegúrate de mapear el título descriptivo corto generado en "title" y el enlace de origen exacto en "source_url".
-      
-      IMPORTANTE:
-      - Solo mapea enlaces web (source_url) que sean reales, verídicos y provengan directamente de portales de noticias o tweets del texto analizado.
-      - Prohibido generar o inventar enlaces ficticios (como example.com, twitter.com/user, urls genéricas de periódicos sin el artículo, etc.).
-      - Si el reporte no posee una URL real y específica en el texto analizado, deja el campo "source_url" vacío/nulo.
-      
-      Si no se describen incidentes válidos en el texto, devuelve un arreglo vacío [].
-    `;
+    // Truncar rawContent para evitar exceder tokens de Gemini en la segunda llamada
+    const truncatedContent = rawContent.length > 12000 ? rawContent.slice(0, 12000) + '\n...[truncado]' : rawContent;
 
-    const structureResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // Ejecución directa para estructuración JSON
-      contents: structurePrompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: {
-              type: { 
-                type: 'STRING', 
-                enum: ['desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros', 'sin_comunicacion'] 
-              },
-              urgency: { 
-                type: 'STRING', 
-                enum: ['critico', 'alto', 'moderado'] 
-              },
-              title: { type: 'STRING' },
-              source_url: { type: 'STRING' },
-              description: { type: 'STRING' },
-              location_text: { type: 'STRING' },
-              state: {
-                type: 'STRING',
-                enum: [
-                  "Distrito Capital", "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", 
-                  "Bolívar", "Carabobo", "Cojedes", "Delta Amacuro", "Falcón", "Guárico", 
-                  "Lara", "Mérida", "Miranda", "Monagas", "Nueva Esparta", "Portuguesa", 
-                  "Sucre", "Táchira", "Trujillo", "La Guaira", "Yaracuy", "Zulia"
-                ]
-              },
-              lat: { type: 'NUMBER' },
-              lng: { type: 'NUMBER' },
-              contact_info: { type: 'STRING' },
-              missing_person: {
-                type: 'OBJECT',
-                properties: {
-                  full_name: { type: 'STRING' },
-                  physical_description: { type: 'STRING' },
-                  last_seen_location: { type: 'STRING' }
+    const structurePrompt = `Analiza el siguiente texto con reportes de emergencia del terremoto de Venezuela y extrae los incidentes.
+Devuelve SOLO un arreglo JSON con los incidentes reales encontrados. Si no hay incidentes válidos, devuelve [].
+
+Reglas:
+- Solo incidentes en estados venezolanos reales.
+- source_url: solo URLs reales del texto (no inventes). Si no hay URL, deja null.
+- Clasifica el tipo: desaparecido, emergencia_medica, rescate_estructural, suministros, o sin_comunicacion.
+- Urgencia: critico, alto, o moderado.
+
+Texto:
+${truncatedContent}`;
+
+    let parsedReports = [];
+    try {
+      const structureResponse = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: structurePrompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                type: {
+                  type: 'STRING',
+                  enum: ['desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros', 'sin_comunicacion']
                 },
-                required: ['full_name']
-              }
-            },
-            required: ['type', 'urgency', 'description', 'location_text', 'state']
+                urgency: { type: 'STRING', enum: ['critico', 'alto', 'moderado'] },
+                title: { type: 'STRING' },
+                source_url: { type: 'STRING' },
+                description: { type: 'STRING' },
+                location_text: { type: 'STRING' },
+                state: {
+                  type: 'STRING',
+                  enum: [
+                    'Distrito Capital', 'Amazonas', 'Anzoátegui', 'Apure', 'Aragua', 'Barinas',
+                    'Bolívar', 'Carabobo', 'Cojedes', 'Delta Amacuro', 'Falcón', 'Guárico',
+                    'Lara', 'Mérida', 'Miranda', 'Monagas', 'Nueva Esparta', 'Portuguesa',
+                    'Sucre', 'Táchira', 'Trujillo', 'La Guaira', 'Yaracuy', 'Zulia'
+                  ]
+                },
+                lat: { type: 'NUMBER' },
+                lng: { type: 'NUMBER' },
+                contact_info: { type: 'STRING' },
+                missing_person: {
+                  type: 'OBJECT',
+                  properties: {
+                    full_name: { type: 'STRING' },
+                    physical_description: { type: 'STRING' },
+                    last_seen_location: { type: 'STRING' }
+                  },
+                  required: ['full_name']
+                }
+              },
+              required: ['type', 'urgency', 'description', 'location_text', 'state']
+            }
           }
         }
-      }
-    });
-
-    const parsedReports = JSON.parse(structureResponse.text);
+      });
+      const responseText = structureResponse.text || '[]';
+      parsedReports = JSON.parse(responseText);
+      if (!Array.isArray(parsedReports)) parsedReports = [];
+    } catch (structErr) {
+      console.error('Error en estructuración JSON de sync-external:', structErr.message);
+      parsedReports = [];
+    }
     console.log(`Gemini estructuró ${parsedReports.length} reportes de la web. Iniciando de-duplicación...`);
 
     const results = [];
