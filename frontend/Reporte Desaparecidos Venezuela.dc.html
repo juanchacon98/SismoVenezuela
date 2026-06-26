@@ -3,32 +3,35 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SismoCaracas - Plataforma de Emergencia de Misión Crítica</title>
-    <!-- Importar tipografía premium sin ralentizar (fallback a sans-serif del sistema si no hay red) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
+    <title>SismoVenezuela - Red de apoyo y centros de acopio</title>
+
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --card-bg: rgba(17, 25, 40, 0.75);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
+            --bg-color: #f3f6fb;
+            --card-bg: #ffffff;
+            --surface-muted: #eef3f8;
+            --border-color: #d8e1ec;
+            --text-primary: #172033;
+            --text-secondary: #526175;
             --color-critical: #ef4444;
             --color-high: #f97316;
             --color-moderate: #eab308;
-            --color-success: #10b981;
-            --color-info: #3b82f6;
-            --glow-critical: rgba(239, 68, 68, 0.2);
+            --color-success: #0f9f6e;
+            --color-info: #2563eb;
+            --color-community: #0f766e;
+            --glow-critical: rgba(239, 68, 68, 0.12);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 0.75rem;
         }
 
         body {
@@ -36,8 +39,7 @@
             color: var(--text-primary);
             min-height: 100vh;
             padding: 1rem;
-            background-image: radial-gradient(circle at top right, rgba(239, 68, 68, 0.08), transparent 400px),
-                              radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.08), transparent 400px);
+            background-image: linear-gradient(180deg, #ffffff 0, #f3f6fb 360px);
             background-attachment: fixed;
         }
 
@@ -51,18 +53,17 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
+            gap: 1rem;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .brand h1 {
             font-size: 1.5rem;
             font-weight: 800;
-            letter-spacing: -0.5px;
+            letter-spacing: 0;
             color: var(--text-primary);
             display: flex;
             align-items: center;
@@ -84,12 +85,13 @@
             align-items: center;
             gap: 0.5rem;
             font-size: 0.85rem;
-            background: rgba(16, 185, 129, 0.15);
+            background: #e9f8f1;
             color: var(--color-success);
             padding: 0.5rem 1rem;
             border-radius: 99px;
-            border: 1px solid rgba(16, 185, 129, 0.2);
+            border: 1px solid #bdebd5;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .status-dot {
@@ -122,11 +124,11 @@
         /* GLASS CARD COMMON */
         .card {
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: 8px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
+            box-shadow: 0 14px 28px rgba(23, 32, 51, 0.06);
         }
 
         .card-title {
@@ -136,7 +138,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 1rem;
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: 0.75rem;
         }
 
@@ -162,18 +165,19 @@
         input, select, textarea {
             width: 100%;
             padding: 0.75rem;
-            background: rgba(0, 0, 0, 0.3);
+            background: #ffffff;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             color: var(--text-primary);
             font-size: 0.9rem;
             transition: all 0.2s ease;
+            min-height: 44px;
         }
 
         input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: var(--color-info);
-            background: rgba(0, 0, 0, 0.5);
+            background: #ffffff;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
@@ -214,6 +218,15 @@
             cursor: pointer;
             transition: all 0.2s ease;
             gap: 0.5rem;
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+
+        .btn:disabled {
+            cursor: not-allowed;
+            filter: grayscale(0.2);
+            opacity: 0.68;
+            transform: none;
         }
 
         .btn:hover {
@@ -236,7 +249,7 @@
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--surface-muted);
         }
 
         .btn-gps {
@@ -252,11 +265,13 @@
             margin-bottom: 1rem;
             overflow-x: auto;
             padding-bottom: 0.5rem;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
 
         .filter-chip {
             padding: 0.4rem 0.8rem;
-            background: rgba(255, 255, 255, 0.05);
+            background: #ffffff;
             border: 1px solid var(--border-color);
             border-radius: 99px;
             font-size: 0.8rem;
@@ -265,12 +280,14 @@
             color: var(--text-secondary);
             font-weight: 600;
             transition: all 0.2s ease;
+            min-height: 40px;
+            touch-action: manipulation;
         }
 
         .filter-chip:hover, .filter-chip.active {
-            background: var(--text-primary);
-            color: var(--bg-color);
-            border-color: var(--text-primary);
+            background: #e8efff;
+            color: var(--color-info);
+            border-color: #b7c9ff;
         }
 
         /* LISTADO DE REPORTES */
@@ -285,9 +302,9 @@
 
         /* REPORT CARDS */
         .report-card {
-            background: rgba(255, 255, 255, 0.02);
+            background: #ffffff;
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 1.25rem;
             transition: all 0.2s ease;
             position: relative;
@@ -295,9 +312,9 @@
         }
 
         .report-card:hover {
-            border-color: rgba(255, 255, 255, 0.18);
+            border-color: #b7c9ff;
             transform: translateY(-2px);
-            background: rgba(255, 255, 255, 0.03);
+            background: #fbfdff;
         }
 
         /* LÍNEA DE PRIORIDAD LATERAL */
@@ -322,6 +339,7 @@
 
         .badge-group {
             display: flex;
+            flex-wrap: wrap;
             gap: 0.4rem;
         }
 
@@ -337,7 +355,7 @@
         .badge-urgency-alto { background: rgba(249, 115, 22, 0.15); color: var(--color-high); }
         .badge-urgency-moderado { background: rgba(234, 179, 8, 0.15); color: var(--color-moderate); }
 
-        .badge-type { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+        .badge-type { background: var(--surface-muted); color: var(--text-primary); }
 
         .report-time {
             font-size: 0.75rem;
@@ -358,7 +376,7 @@
             gap: 0.5rem;
             font-size: 0.8rem;
             color: var(--text-secondary);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid var(--border-color);
             padding-top: 0.75rem;
             margin-bottom: 0.75rem;
         }
@@ -371,7 +389,8 @@
 
         .meta-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
             gap: 0.35rem;
         }
 
@@ -399,7 +418,7 @@
             z-index: 9999;
             padding: 1rem 1.5rem;
             border-radius: 10px;
-            background: #1e293b;
+            background: #172033;
             border: 1px solid var(--border-color);
             color: #fff;
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
@@ -420,6 +439,10 @@
         .toast-success { border-color: var(--color-success); border-left: 4px solid var(--color-success); }
         .toast-error { border-color: var(--color-critical); border-left: 4px solid var(--color-critical); }
         .toast-info { border-color: var(--color-info); border-left: 4px solid var(--color-info); }
+
+        .mobile-quick-actions {
+            display: none;
+        }
 
         /* BOTÓN DE WHATSAPP DINÁMICO */
         .btn-whatsapp {
@@ -462,6 +485,520 @@
             background: #111;
             border-color: rgba(255, 255, 255, 0.35);
         }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            background: #0f766e;
+            color: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #0d5f59;
+        }
+
+        .hero h2 {
+            font-size: clamp(1.6rem, 4vw, 2.6rem);
+            line-height: 1.05;
+            letter-spacing: 0;
+            margin-bottom: 0.75rem;
+            max-width: 780px;
+        }
+
+        .hero p {
+            color: rgba(255, 255, 255, 0.86);
+            line-height: 1.5;
+            max-width: 760px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.6rem;
+            margin-bottom: 0.75rem;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.16);
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-inline {
+            width: auto;
+            min-height: 44px;
+            text-decoration: none;
+        }
+
+        .hero .btn-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.38);
+            color: #ffffff;
+        }
+
+        .hero-status {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .quick-stat {
+            padding: 0.85rem;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+        }
+
+        .quick-stat strong {
+            display: block;
+            font-size: 1.25rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .quick-stat span {
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.78rem;
+            line-height: 1.3;
+        }
+
+        .counter-pill {
+            background: var(--surface-muted);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 99px;
+            white-space: nowrap;
+        }
+
+        .collection-card {
+            border-color: #b9ddd8;
+        }
+
+        .helper-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            margin-bottom: 1rem;
+        }
+
+        .file-input {
+            padding: 0.65rem;
+            background: var(--surface-muted);
+        }
+
+        .import-summary {
+            display: none;
+            margin-top: 0.85rem;
+            padding: 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--surface-muted);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .import-summary strong {
+            color: var(--text-primary);
+        }
+
+        .external-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.6rem;
+        }
+
+        .external-frame-wrap {
+            display: none;
+            margin-top: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--surface-muted);
+        }
+
+        .external-frame-wrap.show {
+            display: block;
+        }
+
+        .external-frame {
+            display: block;
+            width: 100%;
+            min-height: 520px;
+            border: 0;
+            background: #ffffff;
+        }
+
+        .collection-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .center-form {
+            min-width: 0;
+        }
+
+        .map-shell {
+            min-width: 0;
+        }
+
+        .map-panel {
+            width: 100%;
+            min-height: 360px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--surface-muted);
+            touch-action: pan-x pan-y;
+        }
+
+        .map-fallback {
+            display: grid;
+            place-items: center;
+            height: 100%;
+            min-height: 360px;
+            padding: 1rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .leaflet-container {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        .nearest-panel {
+            margin-top: 0.75rem;
+            padding: 0.9rem;
+            border: 1px solid #b9ddd8;
+            border-radius: 8px;
+            background: #edf8f6;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .centers-list {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 0.2rem;
+        }
+
+        .center-item {
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--color-community);
+            border-radius: 8px;
+            padding: 0.9rem;
+            background: #ffffff;
+        }
+
+        .center-item.nearest {
+            border-color: #0f766e;
+            box-shadow: 0 8px 18px rgba(15, 118, 110, 0.14);
+        }
+
+        .center-item h3 {
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .center-item p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.4;
+            margin-bottom: 0.35rem;
+        }
+
+        .center-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+        }
+
+        .text-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 36px;
+            color: var(--color-info);
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .text-link:hover {
+            text-decoration: underline;
+        }
+
+        .capacity-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            border-radius: 99px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .capacity-operativo {
+            background: #e9f8f1;
+            color: var(--color-success);
+        }
+
+        .capacity-alta_demanda {
+            background: #fff7db;
+            color: #a15c00;
+        }
+
+        .capacity-sin_capacidad {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .site-footer {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem 0.5rem;
+            color: var(--text-secondary);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        @media (min-width: 760px) {
+            .hero {
+                grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+                align-items: end;
+            }
+        }
+
+        @media (min-width: 1100px) {
+            .collection-grid {
+                grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+            html {
+                scroll-padding-top: 0.5rem;
+            }
+
+            body {
+                padding: 0.75rem 0.75rem 5.25rem;
+            }
+
+            header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .brand h1 {
+                font-size: 1.35rem;
+            }
+
+            .brand p {
+                font-size: 0.82rem;
+                line-height: 1.35;
+            }
+
+            .status-badge {
+                align-self: flex-start;
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+            }
+
+            .hero {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .hero h2 {
+                font-size: 1.55rem;
+                line-height: 1.12;
+            }
+
+            .hero p {
+                font-size: 0.95rem;
+            }
+
+            .hero-status {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.5rem;
+            }
+
+            .quick-stat {
+                padding: 0.65rem;
+            }
+
+            .quick-stat strong {
+                font-size: 1rem;
+            }
+
+            .quick-stat span {
+                font-size: 0.7rem;
+                overflow-wrap: anywhere;
+            }
+
+            .layout {
+                gap: 1rem;
+            }
+
+            main {
+                order: -1;
+            }
+
+            aside {
+                order: 2;
+            }
+
+            .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                box-shadow: 0 8px 18px rgba(23, 32, 51, 0.05);
+            }
+
+            .card-title {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+
+            label {
+                font-size: 0.84rem;
+            }
+
+            input, select, textarea {
+                font-size: 16px;
+                padding: 0.78rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            textarea {
+                min-height: 96px;
+            }
+
+            .btn {
+                min-height: 48px;
+                padding: 0.8rem 1rem;
+            }
+
+            .btn-inline {
+                width: 100%;
+            }
+
+            .collection-grid {
+                gap: 1rem;
+            }
+
+            .map-shell {
+                order: -1;
+            }
+
+            .map-panel,
+            .map-fallback {
+                min-height: 300px;
+            }
+
+            .external-frame {
+                min-height: 460px;
+            }
+
+            .nearest-panel {
+                font-size: 0.88rem;
+            }
+
+            .centers-list,
+            .reports-list {
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+            }
+
+            .report-card {
+                padding: 1rem;
+            }
+
+            .report-header {
+                gap: 0.5rem;
+                flex-direction: column;
+            }
+
+            .report-meta {
+                grid-template-columns: 1fr;
+                font-size: 0.82rem;
+            }
+
+            .btn-whatsapp,
+            .btn-twitter {
+                margin-left: 0;
+                min-height: 36px;
+                padding: 0.35rem 0.55rem;
+            }
+
+            .toast {
+                left: 0.75rem;
+                right: 0.75rem;
+                bottom: 4.75rem;
+                max-width: none;
+                padding: 0.85rem 1rem;
+            }
+
+            .mobile-quick-actions {
+                position: fixed;
+                left: 0.75rem;
+                right: 0.75rem;
+                bottom: 0.75rem;
+                z-index: 9998;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.35rem;
+                padding: 0.4rem;
+                background: rgba(255, 255, 255, 0.96);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                box-shadow: 0 14px 36px rgba(23, 32, 51, 0.18);
+                backdrop-filter: blur(12px);
+            }
+
+            .mobile-quick-actions a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 44px;
+                padding: 0.35rem;
+                border-radius: 6px;
+                color: var(--text-secondary);
+                font-size: 0.78rem;
+                font-weight: 800;
+                text-align: center;
+                text-decoration: none;
+            }
+
+            .mobile-quick-actions a.active {
+                background: #e8efff;
+                color: var(--color-info);
+            }
+
+            .site-footer {
+                padding-bottom: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -469,20 +1006,46 @@
 <div class="container">
     <header>
         <div class="brand">
-            <h1>SismoCaracas<span>7.2</span></h1>
-            <p>Red Humanitaria de Misión Crítica — Conexión Directa Cloud SQL</p>
+            <h1>SismoVenezuela<span>7.2</span></h1>
+            <p>Reportes, suministros y centros de apoyo comunitario</p>
         </div>
         <div class="status-badge">
             <div class="status-dot"></div>
-            <span>En Línea (2G Optimizado)</span>
+            <span>Operativo</span>
         </div>
     </header>
+
+    <section class="hero" aria-labelledby="heroTitle">
+        <div class="hero-copy">
+            <div class="eyebrow">Respuesta ciudadana</div>
+            <h2 id="heroTitle">Encuentra ayuda cercana y comparte reportes confiables.</h2>
+            <p>La plataforma conecta incidentes, solicitudes de suministros y centros de acopio para facilitar decisiones rápidas en comunidades afectadas.</p>
+            <div class="hero-actions">
+                <a class="btn btn-danger btn-inline" href="#reportForm">Enviar reporte</a>
+                <a class="btn btn-secondary btn-inline" href="#collectionCentersCard">Ver centros de acopio</a>
+            </div>
+        </div>
+        <div class="hero-status" aria-label="Resumen de la red">
+            <div class="quick-stat">
+                <strong id="heroReportsCount">--</strong>
+                <span>incidentes activos</span>
+            </div>
+            <div class="quick-stat">
+                <strong id="heroCentersCount">--</strong>
+                <span>centros registrados</span>
+            </div>
+            <div class="quick-stat">
+                <strong>GPS</strong>
+                <span>distancia al centro más cercano</span>
+            </div>
+        </div>
+    </section>
 
     <div class="layout">
         <!-- FORMULARIO DE REPORTE -->
         <aside>
             <div class="card">
-                <h2 class="card-title">Enviar Auxilio / Reporte</h2>
+                <h2 class="card-title">Enviar reporte de ayuda</h2>
                 <form id="reportForm">
                     <div class="form-group">
                         <label for="type">Tipo de Incidente</label>
@@ -510,7 +1073,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="location_text">Referencia de Ubicación (Crucial)</label>
+                        <label for="location_text">Referencia de ubicación</label>
                         <input type="text" id="location_text" required placeholder="Ej: Esquina de Gradillas a San Jacinto, Edif. La Bolsa">
                     </div>
 
@@ -553,31 +1116,144 @@
                     </div>
 
                     <button type="submit" class="btn btn-danger" id="btnSubmit" style="margin-top: 1rem;">
-                        ⚠️ Enviar Reporte Atómico
+                        ⚠️ Enviar reporte de emergencia
                     </button>
                 </form>
             </div>
             
-            <!-- ACCIONES DE IA / GEMINI SYNC -->
+            <!-- ACCIONES DE RASTREO DE ALERTAS -->
             <div class="card" style="border-color: rgba(59, 130, 246, 0.3);">
                 <h3 class="card-title" style="color: var(--color-info);">
-                    Rastreador de Redes por IA
+                    Rastreador de alertas
                 </h3>
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.4;">
-                    Activa a Google Gemini con Google Search Grounding para escanear en tiempo real Twitter/X y periódicos. Los nuevos reportes se de-duplicarán e insertarán automáticamente conservando la URL original de la fuente.
+                    Busca alertas públicas en redes y noticias para sumar reportes recientes al tablero, conservando la fuente original cuando esté disponible.
                 </p>
                 <button type="button" class="btn" id="btnSyncIA" style="background: rgba(59, 130, 246, 0.15); color: var(--color-info); border: 1px solid rgba(59, 130, 246, 0.3);">
-                    🤖 Rastrear Web y Twitter con Gemini
+                    🤖 Rastrear alertas públicas
                 </button>
+            </div>
+
+            <div class="card" id="externalDataCard">
+                <h3 class="card-title">Base externa de desaparecidos</h3>
+                <p class="helper-text">
+                    Usa la base original como referencia y, si cuentas con un export autorizado en JSON, impórtalo aquí. El sistema fusiona duplicados por similitud de nombre y ubicación.
+                </p>
+                <div class="import-summary" id="missingSyncStatus" style="display: block; margin-top: 0; margin-bottom: 1rem;">
+                    Consultando estado de sincronización...
+                </div>
+                <div class="external-actions">
+                    <a class="btn btn-secondary" href="https://desaparecidosterremotovenezuela.com/" target="_blank" rel="noopener noreferrer">
+                        Abrir sitio original
+                    </a>
+                    <button type="button" class="btn btn-secondary" id="btnToggleExternalFrame">
+                        Ver sitio original aquí
+                    </button>
+                </div>
+                <div class="external-frame-wrap" id="externalFrameWrap">
+                    <iframe
+                        id="externalFrame"
+                        class="external-frame"
+                        title="Desaparecidos Terremoto Venezuela"
+                        loading="lazy"
+                        referrerpolicy="no-referrer"
+                        sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
+                    ></iframe>
+                </div>
+
+                <form id="missingImportForm" style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label for="missingImportFile">Importar export JSON autorizado</label>
+                        <input class="file-input" type="file" id="missingImportFile" accept="application/json,.json">
+                    </div>
+                    <div class="form-group">
+                        <label for="missingImportJson">O pegar JSON</label>
+                        <textarea id="missingImportJson" placeholder='{"items":[{"nombre":"...", "ubicacion":"...", "descripcion":"..."}]}'></textarea>
+                    </div>
+                    <button type="submit" class="btn" id="btnImportMissing">Importar y quitar duplicados</button>
+                    <div class="import-summary" id="missingImportSummary"></div>
+                </form>
             </div>
         </aside>
 
         <!-- PANEL DE CONTROL / REPORTES -->
         <main>
-            <div class="card">
+            <div class="card collection-card" id="collectionCentersCard">
+                <div class="card-title">
+                    <span>Centros de Acopio</span>
+                    <span class="counter-pill" id="centersCount">Cargando...</span>
+                </div>
+
+                <div class="collection-grid">
+                    <form id="collectionCenterForm" class="center-form">
+                        <div class="form-group">
+                            <label for="center_name">Nombre del centro</label>
+                            <input type="text" id="center_name" required placeholder="Ej: Casa comunal La Pastora">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="center_location">Referencia de ubicación</label>
+                            <input type="text" id="center_location" required placeholder="Dirección, punto de referencia o parroquia">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Coordenadas GPS</label>
+                            <div class="form-row">
+                                <input type="number" step="any" id="center_lat" required placeholder="Latitud">
+                                <input type="number" step="any" id="center_lng" required placeholder="Longitud">
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-gps" id="btnCenterGPS" style="margin-top: 0.5rem;">
+                                📍 Usar mi ubicación para el centro
+                            </button>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="center_status">Estado</label>
+                                <select id="center_status">
+                                    <option value="operativo">Operativo</option>
+                                    <option value="alta_demanda">Alta demanda</option>
+                                    <option value="sin_capacidad">Sin capacidad</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="center_schedule">Horario</label>
+                                <input type="text" id="center_schedule" placeholder="Ej: 8:00 a. m. - 6:00 p. m.">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="center_supplies">Insumos que recibe o necesita</label>
+                            <textarea id="center_supplies" placeholder="Ej: Agua, alimentos no perecederos, medicinas, ropa limpia"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="center_contact">Contacto</label>
+                            <input type="text" id="center_contact" placeholder="Teléfono, WhatsApp, Telegram o responsable">
+                        </div>
+
+                        <button type="submit" class="btn" id="btnCenterSubmit">Guardar centro de acopio</button>
+                    </form>
+
+                    <div class="map-shell">
+                        <div id="centersMap" class="map-panel">
+                            <div class="map-fallback">Cargando mapa de centros de acopio...</div>
+                        </div>
+                        <div id="nearestCenter" class="nearest-panel">
+                            Activa tu ubicación para calcular el centro de acopio más cercano.
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="btnFindNearest" style="margin-top: 0.75rem;">
+                            Encontrar centro más cercano
+                        </button>
+                        <div class="centers-list" id="centersList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="incidentsCard">
                 <div class="card-title">
                     <span>Incidentes Reportados</span>
-                    <span id="reportsCount" style="background: rgba(255,255,255,0.08); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 99px; color: var(--text-secondary);">Cargando...</span>
+                    <span id="reportsCount" class="counter-pill">Cargando...</span>
                 </div>
                 
                 <div class="dashboard-actions">
@@ -595,6 +1271,14 @@
         </main>
     </div>
 </div>
+
+<footer class="site-footer">Desarrollado por Corporaci&oacute;n 3JC</footer>
+
+<nav class="mobile-quick-actions" aria-label="Acciones rápidas">
+    <a href="#collectionCentersCard" data-mobile-target="collectionCentersCard" class="active">Acopio</a>
+    <a href="#reportForm" data-mobile-target="reportForm">Reportar</a>
+    <a href="#incidentsCard" data-mobile-target="incidentsCard">Alertas</a>
+</nav>
 
 <!-- TOAST NOTIFICADOR -->
 <div class="toast" id="toast">
@@ -614,12 +1298,38 @@
     const btnSyncIA = document.getElementById('btnSyncIA');
     const reportsList = document.getElementById('reportsList');
     const reportsCount = document.getElementById('reportsCount');
+    const heroReportsCount = document.getElementById('heroReportsCount');
+    const heroCentersCount = document.getElementById('heroCentersCount');
+    const collectionCenterForm = document.getElementById('collectionCenterForm');
+    const btnCenterGPS = document.getElementById('btnCenterGPS');
+    const btnCenterSubmit = document.getElementById('btnCenterSubmit');
+    const btnFindNearest = document.getElementById('btnFindNearest');
+    const centersCount = document.getElementById('centersCount');
+    const centersList = document.getElementById('centersList');
+    const nearestCenter = document.getElementById('nearestCenter');
     const filterChips = document.querySelectorAll('.filter-chip');
+    const mobileActionLinks = document.querySelectorAll('.mobile-quick-actions a');
+    const btnToggleExternalFrame = document.getElementById('btnToggleExternalFrame');
+    const externalFrameWrap = document.getElementById('externalFrameWrap');
+    const externalFrame = document.getElementById('externalFrame');
+    const missingImportForm = document.getElementById('missingImportForm');
+    const missingImportFile = document.getElementById('missingImportFile');
+    const missingImportJson = document.getElementById('missingImportJson');
+    const btnImportMissing = document.getElementById('btnImportMissing');
+    const missingImportSummary = document.getElementById('missingImportSummary');
+    const missingSyncStatus = document.getElementById('missingSyncStatus');
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toastMessage');
 
     // Estado global de la vista
     let currentFilter = 'all';
+    let collectionCenters = [];
+    let userPosition = null;
+    let centersMap = null;
+    let centersLayer = null;
+    let userMarker = null;
+    let leafletLoadPromise = null;
+    let centersMapRequested = false;
 
     // Mostrar subformulario dinámico si es desaparecido
     typeSelect.addEventListener('change', () => {
@@ -655,6 +1365,492 @@
         }
     });
 
+    btnCenterGPS.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            showToast('El GPS no está soportado por tu dispositivo.', 'error');
+            return;
+        }
+
+        btnCenterGPS.textContent = '⏳ Geolocalizando...';
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                document.getElementById('center_lat').value = lat.toFixed(6);
+                document.getElementById('center_lng').value = lng.toFixed(6);
+                btnCenterGPS.textContent = '✅ GPS Capturado';
+                requestCentersMap();
+                if (centersMap) {
+                    centersMap.setView([lat, lng], 14);
+                }
+                showToast('Coordenadas del centro capturadas.', 'success');
+            },
+            (error) => {
+                console.error(error);
+                btnCenterGPS.textContent = '❌ Error GPS';
+                showToast('No se pudo acceder al GPS. Ingresa latitud y longitud manualmente.', 'error');
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    });
+
+    btnFindNearest.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            showToast('El GPS no está soportado por tu dispositivo.', 'error');
+            return;
+        }
+
+        btnFindNearest.disabled = true;
+        btnFindNearest.textContent = 'Calculando ubicación...';
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                userPosition = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                btnFindNearest.disabled = false;
+                btnFindNearest.textContent = 'Encontrar centro más cercano';
+                requestCentersMap();
+                updateUserMarker();
+                renderCollectionCenters();
+                focusNearestCenter();
+                showToast('Centro más cercano calculado.', 'success');
+            },
+            (error) => {
+                console.error(error);
+                btnFindNearest.disabled = false;
+                btnFindNearest.textContent = 'Encontrar centro más cercano';
+                showToast('No se pudo usar tu ubicación para calcular distancia.', 'error');
+            },
+            { enableHighAccuracy: true, timeout: 7000 }
+        );
+    });
+
+    collectionCenterForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const lat = parseFloat(document.getElementById('center_lat').value);
+        const lng = parseFloat(document.getElementById('center_lng').value);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            showToast('El centro necesita coordenadas GPS válidas para mostrarse en el mapa.', 'error');
+            return;
+        }
+
+        const payload = {
+            name: document.getElementById('center_name').value,
+            location_text: document.getElementById('center_location').value,
+            lat,
+            lng,
+            capacity_status: document.getElementById('center_status').value,
+            schedule: document.getElementById('center_schedule').value || null,
+            supplies: document.getElementById('center_supplies').value || null,
+            contact_info: document.getElementById('center_contact').value || null
+        };
+
+        btnCenterSubmit.disabled = true;
+        btnCenterSubmit.textContent = 'Guardando...';
+
+        try {
+            const res = await fetch(`${API_BASE}/api/collection-centers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            btnCenterSubmit.disabled = false;
+            btnCenterSubmit.textContent = 'Guardar centro de acopio';
+
+            if (data.success) {
+                showToast('Centro de acopio registrado.', 'success');
+                collectionCenterForm.reset();
+                btnCenterGPS.textContent = '📍 Usar mi ubicación para el centro';
+                loadCollectionCenters();
+            } else {
+                showToast(`Error: ${data.error}`, 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            btnCenterSubmit.disabled = false;
+            btnCenterSubmit.textContent = 'Guardar centro de acopio';
+            showToast('Error de conexión. Centro no guardado.', 'error');
+        }
+    });
+
+    btnToggleExternalFrame.addEventListener('click', () => {
+        const isOpen = externalFrameWrap.classList.toggle('show');
+        if (isOpen && !externalFrame.src) {
+            externalFrame.src = 'https://desaparecidosterremotovenezuela.com/';
+        }
+        btnToggleExternalFrame.textContent = isOpen ? 'Ocultar sitio original' : 'Ver sitio original aquí';
+    });
+
+    missingImportFile.addEventListener('change', async () => {
+        const file = missingImportFile.files && missingImportFile.files[0];
+        if (!file) return;
+
+        try {
+            missingImportJson.value = await file.text();
+        } catch (error) {
+            console.error(error);
+            showToast('No se pudo leer el archivo JSON.', 'error');
+        }
+    });
+
+    missingImportForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        let payload;
+        try {
+            payload = JSON.parse(missingImportJson.value);
+        } catch {
+            showToast('El JSON no es válido.', 'error');
+            return;
+        }
+
+        btnImportMissing.disabled = true;
+        btnImportMissing.textContent = 'Importando...';
+        missingImportSummary.style.display = 'block';
+        missingImportSummary.textContent = 'Procesando registros y buscando duplicados...';
+
+        try {
+            const body = Array.isArray(payload)
+                ? { source: 'desaparecidosterremotovenezuela.com', items: payload }
+                : { source: 'desaparecidosterremotovenezuela.com', ...payload };
+
+            const res = await fetch(`${API_BASE}/api/import/missing-persons`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            btnImportMissing.disabled = false;
+            btnImportMissing.textContent = 'Importar y quitar duplicados';
+
+            if (!data.success) {
+                missingImportSummary.innerHTML = `<strong>Error:</strong> ${escapeHTML(data.error || 'No se pudo importar.')}`;
+                showToast('No se pudo importar la base externa.', 'error');
+                return;
+            }
+
+            missingImportSummary.innerHTML = `
+                <strong>Importación lista.</strong><br>
+                Recibidos: ${data.received}. Nuevos: ${data.created}. Duplicados fusionados: ${data.merged_duplicates}. Localizados omitidos: ${data.skipped_resolved}. Inválidos: ${data.skipped_invalid}. Errores: ${data.errors}.
+            `;
+            showToast('Base externa importada y deduplicada.', 'success');
+            loadReports();
+        } catch (error) {
+            console.error(error);
+            btnImportMissing.disabled = false;
+            btnImportMissing.textContent = 'Importar y quitar duplicados';
+            missingImportSummary.innerHTML = '<strong>Error:</strong> No se pudo conectar con el servidor.';
+            showToast('Error de conexión al importar.', 'error');
+        }
+    });
+
+    function loadLeafletAssets() {
+        if (window.L) return Promise.resolve();
+        if (leafletLoadPromise) return leafletLoadPromise;
+
+        leafletLoadPromise = new Promise((resolve, reject) => {
+            const css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(css);
+
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('No se pudo cargar Leaflet.'));
+            document.head.appendChild(script);
+        });
+
+        return leafletLoadPromise;
+    }
+
+    async function initCentersMap() {
+        const mapElement = document.getElementById('centersMap');
+        if (!mapElement) return;
+
+        try {
+            await loadLeafletAssets();
+        } catch (error) {
+            console.error(error);
+            mapElement.innerHTML = '<div class="map-fallback">No se pudo cargar el mapa. El listado de centros seguirá disponible.</div>';
+            return;
+        }
+
+        mapElement.innerHTML = '';
+        centersMap = L.map(mapElement, { scrollWheelZoom: false }).setView([10.4806, -66.9036], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(centersMap);
+        centersLayer = L.layerGroup().addTo(centersMap);
+        setTimeout(() => centersMap.invalidateSize(), 0);
+        updateCenterMarkers();
+        updateUserMarker();
+    }
+
+    function requestCentersMap() {
+        if (centersMapRequested || centersMap) return;
+        centersMapRequested = true;
+        initCentersMap();
+    }
+
+    function initCentersMapWhenVisible() {
+        const target = document.getElementById('collectionCentersCard');
+        if (!target) return;
+
+        if (!('IntersectionObserver' in window)) {
+            setTimeout(requestCentersMap, 1200);
+            return;
+        }
+
+        const observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                requestCentersMap();
+                observer.disconnect();
+            }
+        }, {
+            rootMargin: '240px 0px',
+            threshold: 0.01
+        });
+
+        observer.observe(target);
+    }
+
+    function initMobileNavigation() {
+        if (!mobileActionLinks.length) return;
+
+        mobileActionLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mobileActionLinks.forEach(item => item.classList.remove('active'));
+                link.classList.add('active');
+                setTimeout(() => {
+                    if (centersMap) centersMap.invalidateSize();
+                }, 350);
+            });
+        });
+
+        if (!('IntersectionObserver' in window)) return;
+
+        const sections = [...mobileActionLinks]
+            .map(link => document.getElementById(link.dataset.mobileTarget))
+            .filter(Boolean);
+
+        const observer = new IntersectionObserver(entries => {
+            const visibleEntry = entries
+                .filter(entry => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+            if (!visibleEntry) return;
+
+            mobileActionLinks.forEach(link => {
+                link.classList.toggle('active', link.dataset.mobileTarget === visibleEntry.target.id);
+            });
+        }, {
+            rootMargin: '-20% 0px -55% 0px',
+            threshold: [0.12, 0.35, 0.6]
+        });
+
+        sections.forEach(section => observer.observe(section));
+    }
+
+    async function loadCollectionCenters() {
+        try {
+            const res = await fetch(`${API_BASE}/api/collection-centers`);
+            const responseData = await res.json();
+
+            if (responseData.success) {
+                collectionCenters = responseData.data || [];
+                renderCollectionCenters();
+            } else {
+                centersCount.textContent = 'Error';
+                heroCentersCount.textContent = '--';
+                showToast('Error al actualizar centros de acopio.', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            centersCount.textContent = 'Sin conexión';
+            heroCentersCount.textContent = '--';
+            centersList.innerHTML = `
+                <div style="padding: 1rem; color: var(--text-secondary); border: 1px dashed var(--border-color); border-radius: 8px;">
+                    No se pudieron cargar los centros de acopio.
+                </div>
+            `;
+        }
+    }
+
+    function renderCollectionCenters() {
+        const sortedCenters = getCentersWithDistance();
+        const nearest = getNearestCenter();
+
+        centersCount.textContent = `${collectionCenters.length} activos`;
+        heroCentersCount.textContent = collectionCenters.length;
+        updateCenterMarkers();
+        updateNearestPanel(nearest);
+
+        if (sortedCenters.length === 0) {
+            centersList.innerHTML = `
+                <div style="padding: 1rem; color: var(--text-secondary); border: 1px dashed var(--border-color); border-radius: 8px;">
+                    Aún no hay centros de acopio registrados.
+                </div>
+            `;
+            return;
+        }
+
+        centersList.innerHTML = sortedCenters.map(center => {
+            const capacityStatus = center.capacity_status || 'operativo';
+            const distanceText = center.distanceKm !== null ? `<p><strong>Distancia:</strong> ${formatDistance(center.distanceKm)}</p>` : '';
+            const suppliesText = center.supplies ? `<p><strong>Insumos:</strong> ${escapeHTML(center.supplies)}</p>` : '';
+            const scheduleText = center.schedule ? `<p><strong>Horario:</strong> ${escapeHTML(center.schedule)}</p>` : '';
+            const contactText = center.contact_info ? `<p><strong>Contacto:</strong> ${escapeHTML(center.contact_info)}</p>` : '';
+            const nearestClass = nearest && nearest.id === center.id ? ' nearest' : '';
+
+            return `
+                <article class="center-item${nearestClass}">
+                    <div style="display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start;">
+                        <h3>${escapeHTML(center.name)}</h3>
+                        <span class="capacity-badge capacity-${capacityStatus}">${formatCapacityStatus(capacityStatus)}</span>
+                    </div>
+                    <p><strong>Ubicación:</strong> ${escapeHTML(center.location_text)}</p>
+                    ${distanceText}
+                    ${suppliesText}
+                    ${scheduleText}
+                    ${contactText}
+                    <div class="center-actions">
+                        <a class="text-link" href="${createDirectionsUrl(center)}" target="_blank" rel="noopener noreferrer">Abrir ruta</a>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function updateCenterMarkers() {
+        if (!centersMap || !centersLayer) return;
+
+        centersLayer.clearLayers();
+        const bounds = [];
+
+        collectionCenters.forEach(center => {
+            const lat = Number(center.lat);
+            const lng = Number(center.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+            const popup = `
+                <strong>${escapeHTML(center.name)}</strong><br>
+                ${escapeHTML(center.location_text)}<br>
+                <a href="${createDirectionsUrl(center)}" target="_blank" rel="noopener noreferrer">Abrir ruta</a>
+            `;
+
+            L.marker([lat, lng]).addTo(centersLayer).bindPopup(popup);
+            bounds.push([lat, lng]);
+        });
+
+        if (bounds.length > 0) {
+            centersMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 });
+        }
+
+        updateUserMarker();
+    }
+
+    function updateUserMarker() {
+        if (!centersMap || !userPosition) return;
+
+        if (userMarker) {
+            userMarker.setLatLng([userPosition.lat, userPosition.lng]);
+            return;
+        }
+
+        userMarker = L.circleMarker([userPosition.lat, userPosition.lng], {
+            radius: 8,
+            color: '#2563eb',
+            fillColor: '#2563eb',
+            fillOpacity: 0.8
+        }).addTo(centersMap).bindPopup('Tu ubicación aproximada');
+    }
+
+    function updateNearestPanel(nearest) {
+        if (!userPosition) {
+            nearestCenter.textContent = 'Activa tu ubicación para calcular el centro de acopio más cercano.';
+            return;
+        }
+
+        if (!nearest) {
+            nearestCenter.textContent = 'No hay centros de acopio con coordenadas disponibles.';
+            return;
+        }
+
+        nearestCenter.innerHTML = `
+            <strong>Más cercano:</strong> ${escapeHTML(nearest.name)} está a ${formatDistance(nearest.distanceKm)}.
+            <a class="text-link" href="${createDirectionsUrl(nearest)}" target="_blank" rel="noopener noreferrer">Ver ruta</a>
+        `;
+    }
+
+    function focusNearestCenter() {
+        const nearest = getNearestCenter();
+        if (!nearest || !centersMap) return;
+        centersMap.setView([Number(nearest.lat), Number(nearest.lng)], 14);
+    }
+
+    function getCentersWithDistance() {
+        return collectionCenters
+            .map(center => {
+                const lat = Number(center.lat);
+                const lng = Number(center.lng);
+                const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+                const distanceKm = userPosition && hasValidCoords
+                    ? getDistanceKm(userPosition.lat, userPosition.lng, lat, lng)
+                    : null;
+                return { ...center, lat, lng, distanceKm };
+            })
+            .sort((a, b) => {
+                if (a.distanceKm !== null && b.distanceKm !== null) return a.distanceKm - b.distanceKm;
+                if (a.distanceKm !== null) return -1;
+                if (b.distanceKm !== null) return 1;
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+    }
+
+    function getNearestCenter() {
+        return getCentersWithDistance().find(center => center.distanceKm !== null) || null;
+    }
+
+    function getDistanceKm(lat1, lng1, lat2, lng2) {
+        const toRad = value => value * Math.PI / 180;
+        const earthRadiusKm = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    function formatDistance(distanceKm) {
+        if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
+        return `${distanceKm.toFixed(1)} km`;
+    }
+
+    function formatCapacityStatus(status) {
+        const labels = {
+            operativo: 'Operativo',
+            alta_demanda: 'Alta demanda',
+            sin_capacidad: 'Sin capacidad'
+        };
+        return labels[status] || 'Operativo';
+    }
+
+    function createDirectionsUrl(center) {
+        return `https://www.google.com/maps/dir/?api=1&destination=${Number(center.lat)},${Number(center.lng)}`;
+    }
+
     // Cargar Reportes
     async function loadReports() {
         try {
@@ -669,13 +1865,16 @@
             if (responseData.success) {
                 renderReports(responseData.data);
                 reportsCount.textContent = `${responseData.count} activos`;
+                heroReportsCount.textContent = responseData.count;
             } else {
                 reportsCount.textContent = 'Error';
+                heroReportsCount.textContent = '--';
                 showToast('Error al actualizar incidentes.', 'error');
             }
         } catch (err) {
             console.error(err);
             reportsCount.textContent = 'Sin Conexión';
+            heroReportsCount.textContent = '--';
         }
     }
 
@@ -857,7 +2056,7 @@
 
             const data = await res.json();
             btnSubmit.disabled = false;
-            btnSubmit.textContent = '⚠️ Enviar Reporte Atómico';
+            btnSubmit.textContent = '⚠️ Enviar reporte de emergencia';
 
             if (data.success) {
                 if (data.status === 'merged') {
@@ -874,16 +2073,16 @@
             }
         } catch (err) {
             btnSubmit.disabled = false;
-            btnSubmit.textContent = '⚠️ Enviar Reporte Atómico';
+            btnSubmit.textContent = '⚠️ Enviar reporte de emergencia';
             showToast('Error de conexión. Reporte no enviado.', 'error');
         }
     });
 
-    // Sincronizar por IA (Gemini + Grounding)
+    // Sincronizar alertas públicas
     btnSyncIA.addEventListener('click', async () => {
         btnSyncIA.disabled = true;
-        btnSyncIA.textContent = '🤖 Buscando alertas y enlaces en la web con Gemini...';
-        showToast('Gemini está rastreando portales web y redes sociales. Esto puede tomar unos segundos...', 'info');
+        btnSyncIA.textContent = '🤖 Buscando alertas públicas...';
+        showToast('Buscando alertas públicas. Esto puede tomar unos segundos...', 'info');
 
         try {
             const res = await fetch(`${API_BASE}/api/sync-external`, {
@@ -892,7 +2091,7 @@
             });
             const data = await res.json();
             btnSyncIA.disabled = false;
-            btnSyncIA.textContent = '🤖 Rastrear Web y Twitter con Gemini';
+            btnSyncIA.textContent = '🤖 Rastrear alertas públicas';
 
             if (data.success) {
                 showToast(`Sincronización completada. Se capturaron ${data.synchronized_records} alertas potenciales con sus fuentes.`, 'success');
@@ -902,8 +2101,8 @@
             }
         } catch (err) {
             btnSyncIA.disabled = false;
-            btnSyncIA.textContent = '🤖 Rastrear Web y Twitter con Gemini';
-            showToast('Error de red al conectar con Gemini.', 'error');
+            btnSyncIA.textContent = '🤖 Rastrear alertas públicas';
+            showToast('Error de red al rastrear alertas públicas.', 'error');
         }
     });
 
@@ -927,6 +2126,50 @@
         }, 5000);
     }
 
+    async function loadMissingSyncStatus() {
+        if (!missingSyncStatus) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/import/missing-persons/status`);
+            const data = await res.json();
+            const sync = data.sync || {};
+            const nextRun = sync.next_run_at
+                ? new Date(sync.next_run_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
+                : null;
+
+            if (!sync.enabled) {
+                missingSyncStatus.innerHTML = `
+                    <strong>Sincronización automática pendiente.</strong><br>
+                    Se puede activar con un export/API autorizado. Mientras tanto, usa importación JSON manual.
+                `;
+                return;
+            }
+
+            if (sync.last_status === 'error') {
+                missingSyncStatus.innerHTML = `
+                    <strong>Última sincronización con error.</strong><br>
+                    Se reintentará automáticamente${nextRun ? ` cerca de las ${nextRun}` : ''}. También puedes importar JSON manual.
+                `;
+                return;
+            }
+
+            const summary = sync.last_summary;
+            const summaryText = summary
+                ? `Último lote: ${summary.created} nuevos, ${summary.merged_duplicates} duplicados fusionados.`
+                : 'Esperando primera sincronización.';
+            missingSyncStatus.innerHTML = `
+                <strong>Sincronización automática activa.</strong><br>
+                Revisa la fuente externa cada ${data.interval_minutes || 10} minutos como máximo. ${summaryText}
+            `;
+        } catch (error) {
+            console.error(error);
+            missingSyncStatus.innerHTML = `
+                <strong>Estado no disponible.</strong><br>
+                La importación manual sigue disponible.
+            `;
+        }
+    }
+
     // Helper para generar enlace de WhatsApp dinámico
     function getWhatsAppLink(contactInfo, title, type, locationText) {
         if (!contactInfo) return null;
@@ -948,7 +2191,7 @@
             }
 
             const incident = title || type.replace('_', ' ');
-            const message = `Hola, nos comunicamos desde la plataforma de emergencia SismoCaracas. Vimos tu reporte sobre: "${incident}" en "${locationText}". ¿Dónde se encuentran exactamente y qué ayuda necesitan en este momento?`;
+            const message = `Hola, nos comunicamos desde la plataforma de emergencia SismoVenezuela. Vimos tu reporte sobre: "${incident}" en "${locationText}". ¿Dónde se encuentran exactamente y qué ayuda necesitan en este momento?`;
             
             return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         }
@@ -960,7 +2203,7 @@
         const formattedType = type ? type.replace(/_/g, ' ').toUpperCase() : 'INCIDENTE';
         const incidentName = title ? title.toUpperCase() : formattedType;
         const alertHeader = `🚨 URGENTE: Reporte de ${incidentName} en ${locationText}\n\n`;
-        const alertFooter = `\n\nRescate: @PCivil_Ve @paramedicosmtt @bomberos_dc @MirandaPCivil\n#SismoCaracas #EmergenciaVzla`;
+        const alertFooter = `\n\nRescate: @PCivil_Ve @paramedicosmtt @bomberos_dc @MirandaPCivil\n#SismoVenezuela #EmergenciaVzla`;
 
         const maxTextLimit = 280;
         const availableLength = maxTextLimit - alertHeader.length - alertFooter.length;
@@ -980,7 +2223,7 @@
     // Helper para escapar HTML
     function escapeHTML(str) {
         if (!str) return '';
-        return str.replace(/[&<>'"]/g, 
+        return String(str).replace(/[&<>'"]/g,
             tag => ({
                 '&': '&amp;',
                 '<': '&lt;',
@@ -991,9 +2234,30 @@
         );
     }
 
-    // Carga inicial y auto-refresco cada 20 segundos para alta disponibilidad
+    function scheduleVisibleRefresh(callback, intervalMs) {
+        return setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                callback();
+            }
+        }, intervalMs);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            loadReports();
+            loadCollectionCenters();
+        }
+    });
+
+    // Carga inicial con refrescos moderados para conexiones lentas.
+    initCentersMapWhenVisible();
+    initMobileNavigation();
     loadReports();
-    setInterval(loadReports, 20000);
+    loadCollectionCenters();
+    loadMissingSyncStatus();
+    scheduleVisibleRefresh(loadReports, 60000);
+    scheduleVisibleRefresh(loadCollectionCenters, 120000);
+    scheduleVisibleRefresh(loadMissingSyncStatus, 300000);
 </script>
 
 </body>

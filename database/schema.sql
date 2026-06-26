@@ -5,6 +5,7 @@
 
 -- 1. EXTENSIONES REQUERIDAS
 CREATE EXTENSION IF NOT EXISTS pg_trgm; -- Habilita similitud trigram para búsquedas difusas y de-duplicación
+CREATE EXTENSION IF NOT EXISTS pgcrypto; -- Habilita gen_random_uuid() en instalaciones que aún dependen de pgcrypto
 
 -- 2. ENUMS DE APLICACIÓN (Encapsulados en un bloque DO para garantizar idempotencia)
 DO $$
@@ -46,20 +47,47 @@ CREATE TABLE IF NOT EXISTS public.missing_persons (
     last_seen_location TEXT
 );
 
--- 5. ÍNDICES DE OPTIMIZACIÓN (Creación Idempotente)
+-- 5. TABLA DE CENTROS DE ACOPIO (Creación Idempotente)
+CREATE TABLE IF NOT EXISTS public.collection_centers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    location_text TEXT NOT NULL,
+    lat DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90 AND 90),
+    lng DOUBLE PRECISION NOT NULL CHECK (lng BETWEEN -180 AND 180),
+    supplies TEXT,
+    schedule TEXT,
+    contact_info TEXT,
+    capacity_status TEXT NOT NULL DEFAULT 'operativo'
+        CHECK (capacity_status IN ('operativo', 'alta_demanda', 'sin_capacidad')),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Migración de esquema en caliente para bases de datos ya existentes (idempotente)
+ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS supplies TEXT;
+ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS schedule TEXT;
+ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS contact_info TEXT;
+ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS capacity_status TEXT NOT NULL DEFAULT 'operativo';
+ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- 6. ÍNDICES DE OPTIMIZACIÓN (Creación Idempotente)
 CREATE INDEX IF NOT EXISTS idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports (type);
 CREATE INDEX IF NOT EXISTS idx_missing_persons_report_id ON public.missing_persons (report_id);
 CREATE INDEX IF NOT EXISTS idx_missing_persons_name_trgm ON public.missing_persons USING gin (full_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_collection_centers_active ON public.collection_centers (is_active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collection_centers_location ON public.collection_centers (lat, lng);
 
 -- ========================================================
 -- SEGURIDAD A NIVEL DE FILAS (RLS) EN CLOUD SQL
 -- ========================================================
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collection_centers ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.reports FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.collection_centers FORCE ROW LEVEL SECURITY;
 
 -- -- POLÍTICAS PARA: reports -- --
 DROP POLICY IF EXISTS "Permitir select público en reports" ON public.reports;
@@ -91,6 +119,22 @@ WITH CHECK (current_setting('app.role', true) = 'authenticated');
 
 DROP POLICY IF EXISTS "Permitir delete en missing_persons a rescatistas" ON public.missing_persons;
 CREATE POLICY "Permitir delete en missing_persons a rescatistas" ON public.missing_persons FOR DELETE 
+USING (current_setting('app.role', true) = 'authenticated');
+
+-- -- POLÍTICAS PARA: collection_centers -- --
+DROP POLICY IF EXISTS "Permitir select público en collection_centers" ON public.collection_centers;
+CREATE POLICY "Permitir select público en collection_centers" ON public.collection_centers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir insert público en collection_centers" ON public.collection_centers;
+CREATE POLICY "Permitir insert público en collection_centers" ON public.collection_centers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir update en collection_centers a rescatistas" ON public.collection_centers;
+CREATE POLICY "Permitir update en collection_centers a rescatistas" ON public.collection_centers FOR UPDATE
+USING (current_setting('app.role', true) = 'authenticated')
+WITH CHECK (current_setting('app.role', true) = 'authenticated');
+
+DROP POLICY IF EXISTS "Permitir delete en collection_centers a rescatistas" ON public.collection_centers;
+CREATE POLICY "Permitir delete en collection_centers a rescatistas" ON public.collection_centers FOR DELETE
 USING (current_setting('app.role', true) = 'authenticated');
 
 -- ========================================================
