@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto; -- Habilita gen_random_uuid() en instal
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_type') THEN
-        CREATE TYPE incident_type AS ENUM ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros');
+        CREATE TYPE incident_type AS ENUM ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros', 'sin_comunicacion');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'urgency_level') THEN
         CREATE TYPE urgency_level AS ENUM ('critico', 'alto', 'moderado');
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
     lat DOUBLE PRECISION,        -- Coordenada opcional
     lng DOUBLE PRECISION,        -- Coordenada opcional
     contact_info TEXT,           -- Permite reportes anónimos si se omite
+    state TEXT,                  -- Estado federal de Venezuela (NUEVO)
     is_resolved BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
 -- Migración de esquema en caliente para bases de datos ya existentes (idempotente)
 ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS title TEXT;
 ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS source_url TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS state TEXT;
 
 -- 4. TABLA SECUNDARIA: missing_persons (Creación Idempotente)
 CREATE TABLE IF NOT EXISTS public.missing_persons (
@@ -70,7 +72,16 @@ ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS contact_info TEXT
 ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS capacity_status TEXT NOT NULL DEFAULT 'operativo';
 ALTER TABLE public.collection_centers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 
+-- 5b. TABLA DE TELEMETRÍA DE CONECTIVIDAD (Creación Idempotente)
+CREATE TABLE IF NOT EXISTS public.connectivity_telemetry (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    state TEXT NOT NULL,
+    latency_ms INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
 -- 6. ÍNDICES DE OPTIMIZACIÓN (Creación Idempotente)
+CREATE INDEX IF NOT EXISTS idx_connectivity_telemetry_state_time ON public.connectivity_telemetry (state, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports (type);
 CREATE INDEX IF NOT EXISTS idx_missing_persons_report_id ON public.missing_persons (report_id);
@@ -84,10 +95,12 @@ CREATE INDEX IF NOT EXISTS idx_collection_centers_location ON public.collection_
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_centers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.connectivity_telemetry ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.reports FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.missing_persons FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_centers FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.connectivity_telemetry FORCE ROW LEVEL SECURITY;
 
 -- -- POLÍTICAS PARA: reports -- --
 DROP POLICY IF EXISTS "Permitir select público en reports" ON public.reports;
@@ -137,6 +150,13 @@ DROP POLICY IF EXISTS "Permitir delete en collection_centers a rescatistas" ON p
 CREATE POLICY "Permitir delete en collection_centers a rescatistas" ON public.collection_centers FOR DELETE
 USING (current_setting('app.role', true) = 'authenticated');
 
+-- -- POLÍTICAS PARA: connectivity_telemetry -- --
+DROP POLICY IF EXISTS "Permitir select público en connectivity_telemetry" ON public.connectivity_telemetry;
+CREATE POLICY "Permitir select público en connectivity_telemetry" ON public.connectivity_telemetry FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir insert público en connectivity_telemetry" ON public.connectivity_telemetry;
+CREATE POLICY "Permitir insert público en connectivity_telemetry" ON public.connectivity_telemetry FOR INSERT WITH CHECK (true);
+
 -- ========================================================
 -- ROL Y PERMISOS DE CONEXIÓN PARA EL BACKEND (Cloud Run)
 -- ========================================================
@@ -172,6 +192,7 @@ DECLARE
     v_mp_last_seen TEXT;
     v_mp_existing_id UUID;
     v_status TEXT;
+    v_state TEXT;
 BEGIN
     -- 1. Extracción de variables
     v_type := payload->>'type';
@@ -183,6 +204,7 @@ BEGIN
     v_lat := (payload->>'lat')::DOUBLE PRECISION;
     v_lng := (payload->>'lng')::DOUBLE PRECISION;
     v_contact_info := payload->>'contact_info';
+    v_state := payload->>'state';
     v_missing_person := payload->'missing_person';
 
     -- 2. Validaciones básicas obligatorias
@@ -200,7 +222,7 @@ BEGIN
     END IF;
 
     -- Validaciones de enums
-    IF NOT (v_type IN ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros')) THEN
+    IF NOT (v_type IN ('desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros', 'sin_comunicacion')) THEN
         RAISE EXCEPTION 'Tipo de incidente inválido: %', v_type;
     END IF;
     IF NOT (v_urgency IN ('critico', 'alto', 'moderado')) THEN
@@ -264,7 +286,8 @@ BEGIN
             location_text,
             lat,
             lng,
-            contact_info
+            contact_info,
+            state
         ) VALUES (
             v_type::incident_type,
             v_urgency::urgency_level,
@@ -274,7 +297,8 @@ BEGIN
             v_location_text,
             v_lat,
             v_lng,
-            v_contact_info
+            v_contact_info,
+            v_state
         ) RETURNING id INTO v_report_id;
     END IF;
 

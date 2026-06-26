@@ -20,6 +20,14 @@ const runMigrations = async () => {
   const pool = new pg.Pool({ connectionString });
 
   try {
+    // 1. Intentar agregar el nuevo valor al enum de forma aislada para evitar restricciones de transacción
+    try {
+      await pool.query("ALTER TYPE incident_type ADD VALUE IF NOT EXISTS 'sin_comunicacion'");
+      console.log('Enum incident_type actualizado exitosamente con "sin_comunicacion".');
+    } catch (err) {
+      console.log('Nota: Intento de alteración de enum incident_type (se creará si no existe):', err.message);
+    }
+
     // Lee schema.sql del mismo directorio (/database)
     const sqlPath = path.join(__dirname, 'schema.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');

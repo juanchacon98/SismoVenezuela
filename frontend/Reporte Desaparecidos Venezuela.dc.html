@@ -999,6 +999,40 @@
                 padding-bottom: 0;
             }
         }
+
+        /* ESTILOS DE MONITOREO DE RED / CONECTIVIDAD */
+        .state-telemetry-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .state-telemetry-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        .state-telemetry-card.active-filter {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--color-info);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-estable { background-color: var(--color-success); box-shadow: 0 0 6px var(--color-success); }
+        .status-degradado { background-color: var(--color-moderate); box-shadow: 0 0 6px var(--color-moderate); }
+        .status-caido { background-color: var(--color-critical); box-shadow: 0 0 6px var(--color-critical); }
+        .status-sin_datos { background-color: var(--text-secondary); }
     </style>
 </head>
 <body>
@@ -1055,6 +1089,38 @@
                             <option value="rescate_estructural">Rescate Estructural</option>
                             <option value="desaparecido">Persona Desaparecida</option>
                             <option value="suministros">Solicitud de Suministros</option>
+                            <option value="sin_comunicacion">Falla de Comunicaciones / Internet</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="state">Estado (Ubicación Geográfica)</label>
+                        <select id="state" required>
+                            <option value="" disabled selected>Seleccione el estado...</option>
+                            <option value="Distrito Capital">Distrito Capital</option>
+                            <option value="Amazonas">Amazonas</option>
+                            <option value="Anzoátegui">Anzoátegui</option>
+                            <option value="Apure">Apure</option>
+                            <option value="Aragua">Aragua</option>
+                            <option value="Barinas">Barinas</option>
+                            <option value="Bolívar">Bolívar</option>
+                            <option value="Carabobo">Carabobo</option>
+                            <option value="Cojedes">Cojedes</option>
+                            <option value="Delta Amacuro">Delta Amacuro</option>
+                            <option value="Falcón">Falcón</option>
+                            <option value="Guárico">Guárico</option>
+                            <option value="Lara">Lara</option>
+                            <option value="Mérida">Mérida</option>
+                            <option value="Miranda">Miranda</option>
+                            <option value="Monagas">Monagas</option>
+                            <option value="Nueva Esparta">Nueva Esparta</option>
+                            <option value="Portuguesa">Portuguesa</option>
+                            <option value="Sucre">Sucre</option>
+                            <option value="Táchira">Táchira</option>
+                            <option value="Trujillo">Trujillo</option>
+                            <option value="La Guaira">La Guaira</option>
+                            <option value="Yaracuy">Yaracuy</option>
+                            <option value="Zulia">Zulia</option>
                         </select>
                     </div>
 
@@ -1247,6 +1313,57 @@
                         </button>
                         <div class="centers-list" id="centersList"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- MONITOREO DE CONECTIVIDAD NACIONAL -->
+            <div class="card" id="connectivityCard">
+                <div class="card-title">
+                    <span>Monitoreo de Red & Conectividad Nacional</span>
+                    <span id="telemetryStatusBadge" style="background: rgba(16, 185, 129, 0.15); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 99px; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        <div class="status-dot" style="width: 6px; height: 6px; background-color: var(--color-success); border-radius: 50%; animation: pulse 2s infinite;"></div> Telemetría Activa
+                    </span>
+                </div>
+
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.45;">
+                    Visualiza en tiempo real el estado de conectividad a internet de los estados del país. Los datos se actualizan automáticamente midiendo la latencia de red de los usuarios conectados. Haz clic en cualquier estado para filtrar los reportes.
+                </p>
+
+                <!-- Cuadrícula de Estados con Estado de Red -->
+                <div class="connectivity-grid" id="connectivityGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                    <!-- Los estados se renderizan aquí dinámicamente -->
+                </div>
+
+                <!-- Selector del Estado actual del usuario (se pide una sola vez y se guarda en localStorage) -->
+                <div id="userStateSelectorContainer" style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.75rem; font-size: 0.85rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                    <span>📍 ¿Desde qué estado de Venezuela nos visitas? (Ayuda a mapear la conectividad):</span>
+                    <select id="userStateSelect" style="width: auto; padding: 0.35rem; font-size: 0.8rem; background: #000; border: 1px solid var(--border-color); border-radius: 4px; color: #fff;">
+                        <option value="" disabled selected>Selecciona tu estado...</option>
+                        <option value="Distrito Capital">Distrito Capital</option>
+                        <option value="Amazonas">Amazonas</option>
+                        <option value="Anzoátegui">Anzoátegui</option>
+                        <option value="Apure">Apure</option>
+                        <option value="Aragua">Aragua</option>
+                        <option value="Barinas">Barinas</option>
+                        <option value="Bolívar">Bolívar</option>
+                        <option value="Carabobo">Carabobo</option>
+                        <option value="Cojedes">Cojedes</option>
+                        <option value="Delta Amacuro">Delta Amacuro</option>
+                        <option value="Falcón">Falcón</option>
+                        <option value="Guárico">Guárico</option>
+                        <option value="Lara">Lara</option>
+                        <option value="Mérida">Mérida</option>
+                        <option value="Miranda">Miranda</option>
+                        <option value="Monagas">Monagas</option>
+                        <option value="Nueva Esparta">Nueva Esparta</option>
+                        <option value="Portuguesa">Portuguesa</option>
+                        <option value="Sucre">Sucre</option>
+                        <option value="Táchira">Táchira</option>
+                        <option value="Trujillo">Trujillo</option>
+                        <option value="La Guaira">La Guaira</option>
+                        <option value="Yaracuy">Yaracuy</option>
+                        <option value="Zulia">Zulia</option>
+                    </select>
                 </div>
             </div>
 
@@ -1858,6 +1975,9 @@
             if (currentFilter !== 'all') {
                 url += `&type=${currentFilter}`;
             }
+            if (currentStateFilter) {
+                url += `&state=${encodeURIComponent(currentStateFilter)}`;
+            }
 
             const res = await fetch(url);
             const responseData = await res.json();
@@ -1965,7 +2085,7 @@
                     ${missingBox}
 
                     <div class="report-meta">
-                        <div class="meta-item">📍 <strong>Ubicación:</strong> ${escapeHTML(r.location_text)}</div>
+                        <div class="meta-item">📍 <strong>Ubicación:</strong> ${escapeHTML(r.location_text)} ${r.state ? `<span style="opacity: 0.8; font-size: 0.75em; background: rgba(255,255,255,0.06); padding: 0.1rem 0.3rem; border-radius: 4px; margin-left: 0.25rem;">${escapeHTML(r.state)}</span>` : ''}</div>
                         ${r.lat && r.lng ? `<div class="meta-item">🌐 <strong>GPS:</strong> ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</div>` : ''}
                         
                         <div class="meta-item">
@@ -2023,6 +2143,7 @@
         const latVal = document.getElementById('lat').value;
         const lngVal = document.getElementById('lng').value;
         const contact_info = document.getElementById('contact_info').value;
+        const state = document.getElementById('state').value;
 
         const payload = {
             type,
@@ -2032,7 +2153,8 @@
             location_text,
             lat: latVal ? parseFloat(latVal) : null,
             lng: lngVal ? parseFloat(lngVal) : null,
-            contact_info: contact_info || null
+            contact_info: contact_info || null,
+            state: state || null
         };
 
         if (type === 'desaparecido') {
@@ -2255,9 +2377,123 @@
     loadReports();
     loadCollectionCenters();
     loadMissingSyncStatus();
+    initConnectivityMonitoring();
     scheduleVisibleRefresh(loadReports, 60000);
     scheduleVisibleRefresh(loadCollectionCenters, 120000);
     scheduleVisibleRefresh(loadMissingSyncStatus, 300000);
+
+    let currentStateFilter = null;
+    const connectivityGrid = document.getElementById('connectivityGrid');
+    const userStateSelectorContainer = document.getElementById('userStateSelectorContainer');
+    const userStateSelect = document.getElementById('userStateSelect');
+
+    function initConnectivityMonitoring() {
+        // 1. Cargar estado inicial del mapa de conectividad
+        loadConnectivityStatus();
+
+        // 2. Revisar si tenemos el estado del usuario guardado
+        const savedState = localStorage.getItem('user_state');
+        if (!savedState) {
+            userStateSelectorContainer.style.display = 'flex';
+            userStateSelect.addEventListener('change', () => {
+                const selectedState = userStateSelect.value;
+                if (selectedState) {
+                    localStorage.setItem('user_state', selectedState);
+                    userStateSelectorContainer.style.display = 'none';
+                    // Disparar primer ping de telemetría
+                    sendTelemetryProbe();
+                }
+            });
+        } else {
+            // Disparar ping de telemetría inicial y agendar periódico
+            sendTelemetryProbe();
+            setInterval(sendTelemetryProbe, 60000);
+        }
+
+        // Agendar refresco del panel de conectividad cada 30 segundos
+        scheduleVisibleRefresh(loadConnectivityStatus, 30000);
+    }
+
+    async function sendTelemetryProbe() {
+        const state = localStorage.getItem('user_state');
+        if (!state) return;
+
+        const startTime = performance.now();
+        try {
+            // Realizar un fetch a /health para medir latencia real de red
+            await fetch(`${API_BASE}/health`, { cache: 'no-store' });
+            const duration = Math.round(performance.now() - startTime);
+
+            // Reportar telemetría
+            await fetch(`${API_BASE}/api/telemetry`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state, latency_ms: duration })
+            });
+        } catch (err) {
+            console.error('Error de telemetría de red pasiva:', err.message);
+        }
+    }
+
+    async function loadConnectivityStatus() {
+        if (!connectivityGrid) return;
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/connectivity-status`);
+            const responseData = await res.json();
+            
+            if (responseData.success) {
+                renderConnectivityGrid(responseData.data);
+            }
+        } catch (err) {
+            console.error('Error al cargar estado de conectividad nacional:', err.message);
+        }
+    }
+
+    function renderConnectivityGrid(statusData) {
+        if (!connectivityGrid) return;
+
+        connectivityGrid.innerHTML = statusData.map(item => {
+            const isActive = currentStateFilter === item.state;
+            const cardClass = `state-telemetry-card ${isActive ? 'active-filter' : ''}`;
+            const latencyText = item.avg_latency !== null ? `${item.avg_latency} ms` : '--';
+            const countText = item.report_count > 0 ? `(${item.report_count} pings)` : '';
+            
+            return `
+                <div class="${cardClass}" onclick="toggleStateFilter('${escapeHTML(item.state)}')" title="Filtrar incidentes en ${escapeHTML(item.state)}">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+                        <span class="status-indicator status-${item.status}"></span>
+                        <span>${escapeHTML(item.state)}</span>
+                    </div>
+                    <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary);">
+                        <div>${latencyText}</div>
+                        <div style="font-size: 0.65rem; opacity: 0.7;">${countText}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.toggleStateFilter = function(stateName) {
+        if (currentStateFilter === stateName) {
+            currentStateFilter = null; // quitar filtro
+        } else {
+            currentStateFilter = stateName; // aplicar filtro
+        }
+        
+        // Recargar reportes con el nuevo filtro
+        loadReports();
+        
+        // Refrescar el grid para mostrar la tarjeta activa
+        loadConnectivityStatus();
+        
+        showToast(
+            currentStateFilter 
+                ? `Filtrando incidentes para el estado: ${stateName}` 
+                : 'Mostrando incidentes de todos los estados', 
+            'info'
+        );
+    };
 </script>
 
 </body>

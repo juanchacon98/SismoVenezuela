@@ -643,6 +643,104 @@ app.post('/api/import/missing-persons/sync', async (req, res) => {
   });
 });
 
+// Endpoint: Registrar telemetría de conectividad (Acceso Público en background)
+app.post('/api/telemetry', async (req, res) => {
+  try {
+    const { state, latency_ms } = req.body;
+    
+    if (!state || latency_ms === undefined) {
+      return res.status(400).json({ success: false, error: 'Los campos state y latency_ms son requeridos.' });
+    }
+
+    const stateNormalize = normalizeOptionalText(state);
+    const latencyInt = parseInt(latency_ms, 10);
+
+    if (isNaN(latencyInt) || latencyInt < 0) {
+      return res.status(400).json({ success: false, error: 'El valor de latencia no es válido.' });
+    }
+
+    // Insertar telemetría
+    await pool.query(
+      `INSERT INTO public.connectivity_telemetry (state, latency_ms) VALUES ($1, $2);`,
+      [stateNormalize, latencyInt]
+    );
+
+    // Limpieza pasiva automática de telemetría de más de 1 hora
+    pool.query(`DELETE FROM public.connectivity_telemetry WHERE created_at < now() - interval '1 hour';`)
+      .catch(err => console.error('Error al limpiar telemetría antigua:', err.message));
+
+    return res.status(201).json({ success: true });
+  } catch (error) {
+    console.error('Error al procesar telemetría:', error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint: Obtener estado consolidado de conectividad nacional (Acceso Público)
+app.get('/api/connectivity-status', async (req, res) => {
+  try {
+    // Consulta para agrupar latencias promedio de la última hora por estado
+    const query = `
+      SELECT state, 
+             ROUND(AVG(latency_ms))::integer as avg_latency,
+             COUNT(*)::integer as report_count
+      FROM public.connectivity_telemetry
+      WHERE created_at > now() - interval '1 hour'
+      GROUP BY state;
+    `;
+    const result = await pool.query(query);
+    
+    // Lista de los 24 estados de Venezuela
+    const venezuelaStates = [
+      "Distrito Capital", "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", 
+      "Bolívar", "Carabobo", "Cojedes", "Delta Amacuro", "Falcón", "Guárico", 
+      "Lara", "Mérida", "Miranda", "Monagas", "Nueva Esparta", "Portuguesa", 
+      "Sucre", "Táchira", "Trujillo", "La Guaira", "Yaracuy", "Zulia"
+    ];
+
+    const telemetryMap = {};
+    result.rows.forEach(row => {
+      telemetryMap[row.state] = {
+        avg_latency: row.avg_latency,
+        report_count: row.report_count
+      };
+    });
+
+    // Mapear cada estado a su estatus final
+    const statusData = venezuelaStates.map(stateName => {
+      const data = telemetryMap[stateName];
+      let status = 'sin_datos';
+      let avgLatency = null;
+      
+      if (data) {
+        avgLatency = data.avg_latency;
+        if (avgLatency < 500) {
+          status = 'estable';
+        } else if (avgLatency < 2000) {
+          status = 'degradado';
+        } else {
+          status = 'caido';
+        }
+      }
+
+      return {
+        state: stateName,
+        status: status,
+        avg_latency: avgLatency,
+        report_count: data ? data.report_count : 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: statusData
+    });
+  } catch (err) {
+    console.error('Error al obtener estado de conectividad:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint 1: Enviar reporte de emergencia atómico y de-duplicado (Acceso Público)
 app.post('/api/reports', async (req, res) => {
   try {
@@ -698,6 +796,10 @@ app.get('/api/reports', async (req, res) => {
   if (is_resolved !== undefined) {
     values.push(is_resolved === 'true');
     conditions.push(`r.is_resolved = $${values.length}`);
+  }
+  if (state) {
+    values.push(state);
+    conditions.push(`r.state = $${values.length}`);
   }
 
   if (conditions.length > 0) {
@@ -780,9 +882,9 @@ app.post('/api/sync-external', async (req, res) => {
 
     const searchPrompt = `
       Busca reportes recientes en Twitter, X y portales de noticias o periódicos sobre emergencias médicas, 
-      solicitudes de suministros, colapsos de estructuras o personas desaparecidas causadas por el reciente 
-      terremoto de magnitud 7.2 en Caracas, Venezuela.
-      Encuentra incidentes específicos con sus descripciones, ubicaciones físicas detalladas en Caracas, coordenadas 
+      solicitudes de suministros, colapsos de estructuras, fallas de conectividad/internet o personas desaparecidas causadas por el reciente 
+      terremoto de magnitud 7.2 en Venezuela.
+      Encuentra incidentes específicos con sus descripciones, ubicaciones físicas detalladas, el estado federal de Venezuela (ej. Distrito Capital, Miranda, Aragua, Anzoátegui, Carabobo, etc.), coordenadas 
       de GPS si se mencionan y nombres de personas desaparecidas.
       Es obligatorio extraer el título descriptivo corto del suceso y la URL o enlace web exacto (link) de donde 
       obtienes la información (fuente de la noticia o tuit).
@@ -806,7 +908,8 @@ app.post('/api/sync-external', async (req, res) => {
       "${rawContent.replace(/"/g, '\\"')}"
       
       Extrae los incidentes válidos y devuélvelos estrictamente estructurados conforme al esquema JSON solicitado.
-      Filtra y extrae solo incidentes reales con ubicaciones específicas en Caracas.
+      Filtra y extrae solo incidentes reales con ubicaciones específicas dentro de los estados de Venezuela.
+      Determina a qué estado de Venezuela corresponde la ubicación física e indícalo en el campo "state" (elige uno de los 24 estados válidos).
       Asegúrate de mapear el título descriptivo corto generado en "title" y el enlace de origen exacto en "source_url".
       
       IMPORTANTE:
@@ -829,7 +932,7 @@ app.post('/api/sync-external', async (req, res) => {
             properties: {
               type: { 
                 type: 'STRING', 
-                enum: ['desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros'] 
+                enum: ['desaparecido', 'emergencia_medica', 'rescate_estructural', 'suministros', 'sin_comunicacion'] 
               },
               urgency: { 
                 type: 'STRING', 
@@ -839,6 +942,15 @@ app.post('/api/sync-external', async (req, res) => {
               source_url: { type: 'STRING' },
               description: { type: 'STRING' },
               location_text: { type: 'STRING' },
+              state: {
+                type: 'STRING',
+                enum: [
+                  "Distrito Capital", "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", 
+                  "Bolívar", "Carabobo", "Cojedes", "Delta Amacuro", "Falcón", "Guárico", 
+                  "Lara", "Mérida", "Miranda", "Monagas", "Nueva Esparta", "Portuguesa", 
+                  "Sucre", "Táchira", "Trujillo", "La Guaira", "Yaracuy", "Zulia"
+                ]
+              },
               lat: { type: 'NUMBER' },
               lng: { type: 'NUMBER' },
               contact_info: { type: 'STRING' },
@@ -852,7 +964,7 @@ app.post('/api/sync-external', async (req, res) => {
                 required: ['full_name']
               }
             },
-            required: ['type', 'urgency', 'description', 'location_text']
+            required: ['type', 'urgency', 'description', 'location_text', 'state']
           }
         }
       }
