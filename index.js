@@ -398,7 +398,11 @@ function computeNextSyncDelay() {
 
 async function runPythonScraperHelper() {
   console.log('Iniciando raspado nativo de desaparecidos con Gemini...');
-  
+
+  if (!process.env.GEMINI_API_KEY && !process.env.GCP_PROJECT_ID) {
+    throw new Error('GEMINI_API_KEY no está configurada. Configura el secret en el servidor.');
+  }
+
   let ai;
   if (process.env.GEMINI_API_KEY) {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -409,28 +413,63 @@ async function runPythonScraperHelper() {
     ai = new GoogleGenAI({});
   }
 
-  const url = 'https://desaparecidosterremotovenezuela.com/';
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  // Intentar descargar la página con varios User-Agents como fallback
+  const targetUrl = 'https://desaparecidosterremotovenezuela.com/';
+  let htmlText = '';
+
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'curl/8.5.0'
+  ];
+
+  let fetchOk = false;
+  for (const ua of userAgents) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const resp = await fetch(targetUrl, {
+        headers: { 'User-Agent': ua, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'es-VE,es;q=0.9' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (resp.ok) {
+        htmlText = await resp.text();
+        fetchOk = true;
+        console.log(`Página descargada con UA: ${ua.slice(0, 40)}... (${htmlText.length} bytes)`);
+        break;
+      }
+    } catch (e) {
+      console.warn(`Fetch fallido con UA: ${ua.slice(0, 40)}: ${e.message}`);
     }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Fallo al descargar la página externa: HTTP ${response.status}`);
   }
-  
-  const htmlText = await response.text();
 
-  const prompt = `Extrae una lista estructurada de todas las personas desaparecidas (missing persons) reportadas en la página HTML provista.
-Para cada persona, obtén los siguientes campos:
-- full_name (nombre completo)
-- last_seen_location (último lugar visto)
-- description (descripción física, ropa, edad o detalles)
-- contact_info (número de contacto o fuente)
+  if (!fetchOk || htmlText.length < 500) {
+    throw new Error(`No se pudo descargar el contenido de ${targetUrl}. El sitio puede estar caído o protegido.`);
+  }
 
-HTML de la página:
-${htmlText}`;
+  // Verificar que el HTML contiene contenido útil (no solo una página de error o CAPTCHA)
+  const hasContent = /(desaparec|nombre|persona|ubicación|location|contact)/i.test(htmlText);
+  if (!hasContent) {
+    console.warn('El HTML descargado no parece contener datos de desaparecidos. Posible CAPTCHA o bloqueo.');
+    throw new Error('El sitio externo no devuelvió datos de personas desaparecidas. Puede estar protegido por CAPTCHA.');
+  }
+
+  // Truncar HTML a 80,000 chars para no exceder el límite de tokens de Gemini
+  const truncatedHtml = htmlText.length > 80000 ? htmlText.slice(0, 80000) + '\n...[contenido truncado]' : htmlText;
+
+  const prompt = `Eres un extractor de datos humanitarios. Analiza el siguiente HTML de una página web venezolana sobre desaparecidos tras el terremoto.
+Extrae TODOS los registros de personas desaparecidas que encuentres.
+Para cada persona, obtén estos campos:
+- full_name: nombre completo de la persona
+- last_seen_location: último lugar donde fue vista (ciudad/estado/dirección)
+- description: descripción física, ropa, edad u otros detalles relevantes
+- contact_info: teléfono, email o información de contacto para reportar avistamiento
+
+Si no hay personas desaparecidas en el HTML, devuelve success=false y results=[].
+
+HTML:
+${truncatedHtml}`;
 
   const aiResponse = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -461,9 +500,7 @@ ${htmlText}`;
   });
 
   const parsed = JSON.parse(aiResponse.text);
-  if (!parsed.success) {
-    throw new Error('El análisis de IA reportó success=false.');
-  }
+  console.log(`Gemini extrajo ${parsed.results?.length || 0} personas desaparecidas del sitio.`);
 
   return parsed.results || [];
 }
@@ -879,7 +916,7 @@ app.post('/api/reports', async (req, res) => {
 
 // Endpoint 2: Listar reportes con filtros y agregación de personas desaparecidas (Acceso Público)
 app.get('/api/reports', async (req, res) => {
-  const { type, urgency, is_resolved, limit = 50, offset = 0 } = req.query;
+  const { type, urgency, is_resolved, state, limit = 50, offset = 0 } = req.query;
   
   let queryText = `
     SELECT r.*, 
