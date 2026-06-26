@@ -396,45 +396,76 @@ function computeNextSyncDelay() {
   return MISSING_PERSONS_SYNC_INTERVAL_MS * multiplier;
 }
 
-function runPythonScraperHelper() {
-  return new Promise((resolve, reject) => {
-    const pythonScriptPath = path.join(__dirname, 'database', 'scrape_missing.py');
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-    const env = { ...process.env };
-    
-    const child = spawn(pythonCmd, [pythonScriptPath], { env });
-    
-    let stdoutData = '';
-    let stderrData = '';
-    
-    child.stdout.on('data', (data) => {
-      stdoutData += data.toString();
-    });
-    
-    child.stderr.on('data', (data) => {
-      stderrData += data.toString();
-    });
-    
-    child.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`El scraper de Python falló con código ${code}. Detalles: ${stderrData.slice(-300)}`));
-      }
-      
-      try {
-        const parsedOutput = JSON.parse(stdoutData);
-        if (!parsedOutput.success) {
-          return reject(new Error(parsedOutput.error || 'El script del scraper reportó un fallo sin detalles.'));
-        }
-        resolve(parsedOutput.results);
-      } catch (err) {
-        reject(new Error(`Error al procesar la salida del scraper: ${err.message}`));
-      }
-    });
-    
-    child.on('error', (err) => {
-      reject(err);
-    });
+async function runPythonScraperHelper() {
+  console.log('Iniciando raspado nativo de desaparecidos con Gemini...');
+  
+  let ai;
+  if (process.env.GEMINI_API_KEY) {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  } else {
+    process.env.GOOGLE_GENAI_USE_ENTERPRISE = 'true';
+    process.env.GOOGLE_CLOUD_PROJECT = process.env.GCP_PROJECT_ID || 'praxis-ia-498305';
+    process.env.GOOGLE_CLOUD_LOCATION = 'us-central1';
+    ai = new GoogleGenAI({});
+  }
+
+  const url = 'https://desaparecidosterremotovenezuela.com/';
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
   });
+  
+  if (!response.ok) {
+    throw new Error(`Fallo al descargar la página externa: HTTP ${response.status}`);
+  }
+  
+  const htmlText = await response.text();
+
+  const prompt = `Extrae una lista estructurada de todas las personas desaparecidas (missing persons) reportadas en la página HTML provista.
+Para cada persona, obtén los siguientes campos:
+- full_name (nombre completo)
+- last_seen_location (último lugar visto)
+- description (descripción física, ropa, edad o detalles)
+- contact_info (número de contacto o fuente)
+
+HTML de la página:
+${htmlText}`;
+
+  const aiResponse = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          success: { type: 'BOOLEAN' },
+          results: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                full_name: { type: 'STRING' },
+                last_seen_location: { type: 'STRING' },
+                description: { type: 'STRING' },
+                contact_info: { type: 'STRING' }
+              },
+              required: ['full_name', 'last_seen_location']
+            }
+          }
+        },
+        required: ['success', 'results']
+      }
+    }
+  });
+
+  const parsed = JSON.parse(aiResponse.text);
+  if (!parsed.success) {
+    throw new Error('El análisis de IA reportó success=false.');
+  }
+
+  return parsed.results || [];
 }
 
 async function runMissingPersonsSync(reason = 'scheduled') {
