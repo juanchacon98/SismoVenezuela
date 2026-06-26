@@ -405,7 +405,6 @@ async function runPythonScraperHelper() {
 
   let ai;
   if (process.env.GEMINI_API_KEY) {
-    // Limpiar variables de Vertex AI que pueden interferir con el modo API Key
     delete process.env.GOOGLE_GENAI_USE_ENTERPRISE;
     delete process.env.GOOGLE_CLOUD_PROJECT;
     delete process.env.GOOGLE_CLOUD_LOCATION;
@@ -417,7 +416,6 @@ async function runPythonScraperHelper() {
     ai = new GoogleGenAI({});
   }
 
-  // Intentar descargar la página con varios User-Agents como fallback
   const targetUrl = 'https://desaparecidosterremotovenezuela.com/';
   let htmlText = '';
 
@@ -452,25 +450,20 @@ async function runPythonScraperHelper() {
     throw new Error(`No se pudo descargar el contenido de ${targetUrl}. El sitio puede estar caído o protegido.`);
   }
 
-  // Verificar que el HTML contiene contenido útil (no solo una página de error o CAPTCHA)
-  const hasContent = /(desaparec|nombre|persona|ubicación|location|contact)/i.test(htmlText);
+  const hasContent = /(desaparec|nombre|persona|ubicaci|location|contact)/i.test(htmlText);
   if (!hasContent) {
     console.warn('El HTML descargado no parece contener datos de desaparecidos. Posible CAPTCHA o bloqueo.');
-    throw new Error('El sitio externo no devuelvió datos de personas desaparecidas. Puede estar protegido por CAPTCHA.');
+    throw new Error('El sitio externo no devolvió datos de personas desaparecidas. Puede estar protegido por CAPTCHA.');
   }
 
-  // Truncar HTML a 80,000 chars para no exceder el límite de tokens de Gemini
-  const truncatedHtml = htmlText.length > 80000 ? htmlText.slice(0, 80000) + '\n...[contenido truncado]' : htmlText;
+  const truncatedHtml = htmlText.length > 60000 ? htmlText.slice(0, 60000) + '\n...[contenido truncado]' : htmlText;
 
-  const prompt = `Eres un extractor de datos humanitarios. Analiza el siguiente HTML de una página web venezolana sobre desaparecidos tras el terremoto.
-Extrae TODOS los registros de personas desaparecidas que encuentres.
-Para cada persona, obtén estos campos:
-- full_name: nombre completo de la persona
-- last_seen_location: último lugar donde fue vista (ciudad/estado/dirección)
-- description: descripción física, ropa, edad u otros detalles relevantes
-- contact_info: teléfono, email o información de contacto para reportar avistamiento
+  console.log('Paso 1: Extrayendo texto de personas desaparecidas del HTML...');
+  const extractPrompt = `Analiza el siguiente HTML de una página web sobre personas desaparecidas en Venezuela tras el terremoto de 2024.
+Lista TODAS las personas desaparecidas que encuentres. Para cada una escribe una línea con:
+NOMBRE: [nombre completo] | UBICACION: [último lugar visto] | DESCRIPCION: [detalles físicos/ropa/edad] | CONTACTO: [teléfono o info de contacto]
 
-Si no hay personas desaparecidas en el HTML, devuelve success=false y results=[].
+Si no encuentras personas desaparecidas, responde exactamente: "SIN_DATOS"
 
 HTML:
 ${truncatedHtml}`;
