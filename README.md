@@ -72,9 +72,19 @@ Para evitar el uso de APIs propietarias restringidas por reCAPTCHA, el sistema i
 
 ### 🐳 Google Cloud Run (Backend)
 El despliegue está automatizado mediante GitHub Actions (`.github/workflows/deploy.yml`). Al realizar un push a la rama `main`, se ejecutan las siguientes acciones:
-1. Se compila la imagen utilizando el `Dockerfile` (el cual está configurado sobre Alpine e instala Python, pip y pre-instala todas las dependencias requeridas para ScrapeGraphAI y Gemini).
-2. Se sube a Google Artifact Registry.
-3. Se despliega en Google Cloud Run inyectando los secretos de Cloud SQL.
+1. Se compila la imagen Docker (Node.js 20-Alpine) y se sube a Google Artifact Registry.
+2. Se despliega en Google Cloud Run inyectando las variables de entorno desde los secretos del repositorio.
+
+#### 🔑 GitHub Secrets requeridos
+Configura estos secretos en **Settings → Secrets and variables → Actions** de tu repositorio:
+
+| Secret | Descripción |
+|---|---|
+| `GCP_SA_KEY` | JSON completo de la clave de la Service Account de GCP con permisos para Artifact Registry y Cloud Run |
+| `GCP_PROJECT_ID` | ID del proyecto en Google Cloud (ej. `praxis-ia-498305`) |
+| `DATABASE_URL` | Connection string completo de PostgreSQL (Cloud SQL) |
+| `GEMINI_API_KEY` | API Key de Google AI Studio para el motor de IA (`/api/sync-external`) |
+| `MISSING_PERSONS_SYNC_URL` | (Opcional) URL del endpoint autorizado para sincronizar personas desaparecidas |
 
 ### ⚡ Cloudflare Workers (Telemetría)
 Para actualizar y desplegar el worker serverless de telemetría de GA4:
