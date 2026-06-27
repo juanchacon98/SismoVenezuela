@@ -1183,8 +1183,16 @@ function escapeXml(unsafe) {
     .replace(/'/g, '&apos;');
 }
 
+function sanitizeValue(val) {
+  if (val === null || val === undefined || String(val).toLowerCase() === 'null') {
+    return '';
+  }
+  return String(val);
+}
+
 function formatRowToPfifObj(row, hostname) {
-  const names = (row.full_name || '').trim().split(/\s+/);
+  const full_name = sanitizeValue(row.full_name);
+  const names = full_name.trim().split(/\s+/);
   const first_name = names[0] || '';
   const last_name = names.slice(1).join(' ') || '';
   const domain = hostname || 'ayuda-venezuela-backend-291864207498.us-central1.run.app';
@@ -1194,24 +1202,24 @@ function formatRowToPfifObj(row, hostname) {
     entry_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
     author_name: 'SismoVenezuela',
     author_email: '',
-    author_phone: row.contact_info || '',
+    author_phone: sanitizeValue(row.contact_info),
     source_name: 'SismoVenezuela',
     source_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
-    source_url: row.source_url || `https://${domain}/personas/${row.id}`,
+    source_url: sanitizeValue(row.source_url) || `https://${domain}/personas/${row.id}`,
     first_name: first_name,
     last_name: last_name,
-    full_name: row.full_name || '',
+    full_name: full_name,
     alternate_names: '',
     sex: '',
     age: '',
     home_street: '',
-    home_neighborhood: row.last_seen_location || '',
+    home_neighborhood: sanitizeValue(row.last_seen_location),
     home_city: '',
-    home_state: row.state || '',
+    home_state: sanitizeValue(row.state),
     home_postal_code: '',
     home_country: 'VE',
     photo_url: '',
-    other: row.physical_description || ''
+    other: sanitizeValue(row.physical_description)
   };
 }
 
