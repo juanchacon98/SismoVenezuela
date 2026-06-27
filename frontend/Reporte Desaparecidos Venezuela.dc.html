@@ -1459,8 +1459,10 @@
 </div>
 
 <script>
-    // Configuración inicial del Cliente API
-    const API_BASE = window.location.origin;
+    // Configuración inicial del Cliente API (resiliente a despliegue local o file://)
+    const API_BASE = (window.location.origin.startsWith('file://') || window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1'))
+        ? 'https://ayuda-venezuela-backend-291864207498.us-central1.run.app'
+        : window.location.origin;
     let gaMetricsData = null;
     let lastConnectivityData = null;
 

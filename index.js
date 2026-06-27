@@ -16,6 +16,17 @@ const app = express();
 app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: '2mb' }));
 
+// Middleware de CORS nativo para permitir peticiones desde entornos locales y descentralizados
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 const port = process.env.PORT || 8080;
 const MISSING_PERSONS_SOURCE_NAME = process.env.MISSING_PERSONS_SOURCE_NAME || 'desaparecidosterremotovenezuela.com';
 const MISSING_PERSONS_SYNC_URL = normalizeEnvUrl(process.env.MISSING_PERSONS_SYNC_URL);
