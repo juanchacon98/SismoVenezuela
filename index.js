@@ -1155,6 +1155,13 @@ ${truncatedContent}`;
     const results = [];
     for (const r of parsedReports) {
       try {
+        if (r.type === 'desaparecido' && !r.missing_person) {
+          r.missing_person = {
+            full_name: r.title || 'Persona no identificada',
+            physical_description: r.description || '',
+            last_seen_location: r.location_text || ''
+          };
+        }
         const dbResult = await pool.query(
           'SELECT submit_emergency_report($1::jsonb) AS data;',
           [JSON.stringify(r)]
