@@ -1321,6 +1321,27 @@
                         </a>
                     </div>
 
+                    <!-- Puertas Abiertas Vzla -->
+                    <div style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; border-left: 3px solid var(--color-success);">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+                            🏠 Alojamiento Temporal (Puertas Abiertas Vzla)
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.35;">
+                            Plataforma solidaria para mapear familias damnificadas y conectarlas con personas dispuestas a ofrecer alojamiento temporal.
+                        </p>
+                        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                            <a href="https://puertasabiertasvzla.org/soy-damnificado" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; color: white; background: var(--color-critical); padding: 0.25rem 0.5rem; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.7rem;">
+                                🆘 Soy Damnificado ↗
+                            </a>
+                            <a href="https://puertasabiertasvzla.org/ofrecer-hogar" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; color: white; background: var(--color-success); padding: 0.25rem 0.5rem; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.7rem;">
+                                🤝 Ofrecer Espacio ↗
+                            </a>
+                        </div>
+                        <a href="https://www.instagram.com/puertasabiertasve?igsh=MXdjZXY2dWlnc2Nwaw==" target="_blank" rel="noopener noreferrer" style="color: var(--color-info); text-decoration: underline; font-weight: 600; font-size: 0.75rem; display: block;">
+                            📸 Instagram: @puertasabiertasve ↗
+                        </a>
+                    </div>
+
                     <!-- Help Venezuela Vercel -->
                     <div style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem;">
                         <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
@@ -1332,6 +1353,150 @@
                         <a href="https://help-venezuela.vercel.app/" target="_blank" rel="noopener noreferrer" style="color: var(--color-info); text-decoration: underline; font-weight: 600;">
                             Ver Directorio de Iniciativas ↗
                         </a>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TELÉFONOS DE EMERGENCIA -->
+            <div class="card" id="emergencyPhonesCard" style="border-left: 4px solid var(--color-critical);">
+                <h3 class="card-title" style="color: var(--color-critical); display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span>📞 Teléfonos de Emergencia</span>
+                    <span style="background: rgba(239, 68, 68, 0.1); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 99px; color: var(--color-critical); font-weight: 600;">Líneas Directas</span>
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.35;">
+                    Haz clic en cualquier número para llamar directamente desde tu dispositivo móvil.
+                </p>
+                
+                <!-- Buscador de teléfonos -->
+                <input type="text" id="emergencyPhoneSearch" placeholder="Buscar (ej. Chacao, Catia, PC)..." style="width: 100%; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.8rem; margin-bottom: 0.75rem; background: var(--card-bg); color: var(--text-primary);">
+
+                <!-- Filtros por tipo -->
+                <div style="display: flex; gap: 0.35rem; margin-bottom: 0.75rem; overflow-x: auto; padding-bottom: 0.25rem;">
+                    <button type="button" class="filter-chip active phone-filter-btn" data-type="all" style="min-height: 28px; padding: 0.25rem 0.6rem; font-size: 0.75rem;">Todos</button>
+                    <button type="button" class="filter-chip phone-filter-btn" data-type="bomberos" style="min-height: 28px; padding: 0.25rem 0.6rem; font-size: 0.75rem;">🚒 Bomberos</button>
+                    <button type="button" class="filter-chip phone-filter-btn" data-type="pc" style="min-height: 28px; padding: 0.25rem 0.6rem; font-size: 0.75rem;">🛡️ Prot. Civil</button>
+                </div>
+
+                <div id="emergencyPhonesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto; padding-right: 0.2rem;">
+                    
+                    <!-- BOMBEROS -->
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos antimano" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Antímano</span>
+                        <a href="tel:02124722054" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 472.20.54</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos catia la mar" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Catia la Mar</span>
+                        <a href="tel:02123519966" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 351.99.66</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos chacao" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Chacao</span>
+                        <a href="tel:02122653261" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 265.32.61</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos del este el cafetal" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos del Este (Cafetal)</span>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <a href="tel:02129874334" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">987.43.34</a> /
+                            <a href="tel:02129855060" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">985.50.60</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos sucre" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Sucre</span>
+                        <a href="tel:02129853640" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 985.36.40</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos el cafetal" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos El Cafetal</span>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <a href="tel:02129853640" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">985.36.40</a> /
+                            <a href="tel:02129852977" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">985.29.77</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos el paraiso" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos El Paraíso</span>
+                        <a href="tel:02124810961" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 481.09.61</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos el valle" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos El Valle</span>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <a href="tel:02126720175" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">672.01.75</a> /
+                            <a href="tel:02126720636" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">672.06.36</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos la guaira" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos La Guaira</span>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <a href="tel:02123327620" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">332.76.20</a> /
+                            <a href="tel:02123310445" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">331.04.45</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos la trinidad" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos La Trinidad</span>
+                        <a href="tel:02129434361" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 943.43.61</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos la urbina" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos La Urbina</span>
+                        <a href="tel:02122416641" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 241.66.41</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos metropolitanos" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Metropolitanos</span>
+                        <a href="tel:02125454545" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 545.45.45</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos miranda" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Miranda</span>
+                        <a href="tel:02122356967" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 235.69.67</a>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos plaza venezuela" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos Plaza Venezuela</span>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <a href="tel:02127930039" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">793.00.39</a> /
+                            <a href="tel:02127936457" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">793.64.57</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="bomberos" data-search="bomberos san bernardino" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🚒 Bomberos San Bernardino</span>
+                        <a href="tel:02125779209" style="color: var(--color-critical); font-weight: 700; text-decoration: none;">(0212) 577.92.09</a>
+                    </div>
+
+                    <!-- PROTECCIÓN CIVIL -->
+                    <div class="phone-item" data-type="pc" data-search="proteccion civil nacional 0800 0800-5588427 0800-2668446 0800-2624368" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem;">
+                        <div style="font-weight: 600; color: var(--text-primary);">🛡️ Protección Civil (Nacional)</div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; font-weight: 700;">
+                            <a href="tel:08005588427" style="color: var(--color-info); text-decoration: none;">0800-5588427</a>
+                            <span style="color: var(--border-color)">|</span>
+                            <a href="tel:08002668446" style="color: var(--color-info); text-decoration: none;">0800-2668446</a>
+                            <span style="color: var(--border-color)">|</span>
+                            <a href="tel:08002624368" style="color: var(--color-info); text-decoration: none;">0800-2624368</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="pc" data-search="instituto de proteccion civil ipc caracas miranda" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem;">
+                        <div style="font-weight: 600; color: var(--text-primary);">🛡️ Instituto de Protección Civil</div>
+                        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; font-weight: 700;">
+                            <a href="tel:02126318662" style="color: var(--color-info); text-decoration: none;">631.86.62</a> /
+                            <a href="tel:02126319058" style="color: var(--color-info); text-decoration: none;">631.90.58</a> /
+                            <a href="tel:02126628476" style="color: var(--color-info); text-decoration: none;">662.84.76</a> /
+                            <a href="tel:02126623205" style="color: var(--color-info); text-decoration: none;">662.32.05</a> /
+                            <a href="tel:02125459391" style="color: var(--color-info); text-decoration: none;">545.93.91</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="pc" data-search="defensa civil alcaldia mayor caracas" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🛡️ Defensa Civil Alcaldía Mayor</span>
+                        <div style="display: flex; gap: 0.35rem; font-weight: 700;">
+                            <a href="tel:02126626759" style="color: var(--color-info); text-decoration: none;">662.67.59</a> /
+                            <a href="tel:02126623205" style="color: var(--color-info); text-decoration: none;">662.32.05</a>
+                        </div>
+                    </div>
+                    <div class="phone-item" data-type="pc" data-search="defensa civil nacional 0800 0800.28326 0800.24845 caracas" style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem;">
+                        <div style="font-weight: 600; color: var(--text-primary);">🛡️ Defensa Civil Nacional</div>
+                        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; font-weight: 700; margin-bottom: 0.2rem;">
+                            <a href="tel:080028326" style="color: var(--color-info); text-decoration: none;">0800-28326</a>
+                            <span style="color: var(--border-color)">|</span>
+                            <a href="tel:080024845" style="color: var(--color-info); text-decoration: none;">0800-24845</a>
+                        </div>
+                        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; font-weight: 700;">
+                            <a href="tel:02124839805" style="color: var(--color-info); text-decoration: none;">(0212) 483.98.05</a> /
+                            <a href="tel:02126622252" style="color: var(--color-info); text-decoration: none;">662.22.52</a> /
+                            <a href="tel:02126626619" style="color: var(--color-info); text-decoration: none;">662.66.19</a>
+                        </div>
                     </div>
 
                 </div>
@@ -3277,6 +3442,48 @@
             seismicList.innerHTML = `<div style="text-align: center; color: var(--color-critical); padding: 1.5rem;">Error de conexión con el servicio de alertas sísmicas (USGS).</div>`;
         }
     }
+
+    // Buscador y filtros de teléfonos de emergencia
+    const searchInput = document.getElementById('emergencyPhoneSearch');
+    const filterButtons = document.querySelectorAll('.phone-filter-btn');
+    const phoneItems = document.querySelectorAll('.phone-item');
+
+    function filterPhones() {
+        if (!searchInput) return;
+        const query = searchInput.value.toLowerCase().trim();
+        const activeBtn = document.querySelector('.phone-filter-btn.active');
+        const activeFilter = activeBtn ? activeBtn.getAttribute('data-type') : 'all';
+
+        phoneItems.forEach(item => {
+            const itemType = item.getAttribute('data-type');
+            const searchTag = item.getAttribute('data-search') || '';
+            
+            const matchesSearch = searchTag.includes(query);
+            const matchesType = activeFilter === 'all' || itemType === activeFilter;
+
+            if (matchesSearch && matchesType) {
+                if (itemType === 'pc' && item.style.flexDirection === 'column') {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'flex';
+                }
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterPhones);
+    }
+
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filterPhones();
+        });
+    });
 </script>
 
 </body>
