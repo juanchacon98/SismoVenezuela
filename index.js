@@ -1315,6 +1315,40 @@ app.get('/pfif', async (req, res) => {
   }
 });
 
+app.get('/api/delete-debug', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN;');
+    
+    // 1. Ver qué hay en la base de datos que coincida
+    const before = await client.query("SELECT id, name FROM public.collection_centers WHERE name ILIKE '%Sangre%'");
+    
+    // 2. Hacer la eliminación por ID y por nombre
+    const result = await client.query(
+      `DELETE FROM public.collection_centers 
+       WHERE id = 'fb757b3d-821f-4d6c-8fa9-5604dcc4da36' 
+          OR name = 'Parroquia Presiosisima Sangre'
+          OR name ILIKE '%Sangre%';`
+    );
+    
+    // 3. Ver qué queda
+    const after = await client.query("SELECT id, name FROM public.collection_centers WHERE name ILIKE '%Sangre%'");
+    
+    await client.query('COMMIT;');
+    res.json({
+      success: true,
+      before: before.rows,
+      deletedCount: result.rowCount,
+      after: after.rows
+    });
+  } catch (err) {
+    await client.query('ROLLBACK;');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor de emergencia escuchando en el puerto ${port}`);
   startMissingPersonsSyncScheduler();
