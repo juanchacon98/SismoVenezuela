@@ -1315,6 +1315,29 @@ app.get('/pfif', async (req, res) => {
   }
 });
 
+app.get('/api/delete-presiosisima', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN;');
+    const result = await client.query(
+      `DELETE FROM public.collection_centers 
+       WHERE name ILIKE '%Presiosisima%' 
+          OR name ILIKE '%Preciosísima%' 
+          OR name ILIKE '%Presiosísima%' 
+          OR name ILIKE '%Preciosísima Sangre%'
+          OR name ILIKE '%Presiosisima Sangre%';`
+    );
+    await client.query('COMMIT;');
+    res.json({ success: true, message: `Eliminados ${result.rowCount} centros.` });
+  } catch (err) {
+    await client.query('ROLLBACK;');
+    console.error('Error deleting presiosisima center:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor de emergencia escuchando en el puerto ${port}`);
   startMissingPersonsSyncScheduler();

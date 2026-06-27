@@ -1268,6 +1268,19 @@
                 
                 <div style="display: flex; flex-direction: column; gap: 0.85rem;">
                     
+                    <!-- Carpeta de Drive Hospitales -->
+                    <div style="background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; border-left: 3px solid #7c3aed;">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+                            📂 Listas de Hospitales (Google Drive)
+                        </div>
+                        <p style="color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.35;">
+                            Repositorio compartido con listas y planillas actualizadas con nombres de personas registradas en distintos hospitales.
+                        </p>
+                        <a href="https://drive.google.com/drive/folders/1o36ifaRz45kAs5rKzci49aD0mP5JB_YI" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; color: white; background: #7c3aed; padding: 0.35rem 0.6rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.75rem;">
+                            📁 Abrir Repositorio Drive ↗
+                        </a>
+                    </div>
+                    
                     <!-- Bot de Telegram -->
                     <div style="background: var(--surface-muted); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; border-left: 3px solid var(--color-info);">
                         <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
@@ -1578,6 +1591,15 @@
                         <button type="button" class="btn btn-secondary" id="btnFindNearest" style="margin-top: 0.75rem;">
                             Encontrar centro más cercano
                         </button>
+                        
+                        <!-- BUSCADOR DE CENTROS DE ACOPIO -->
+                        <div class="form-group" style="margin-top: 1rem; margin-bottom: 0.75rem;">
+                            <label for="centerSearchInput" style="font-weight: 600; display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem;">
+                                🔍 Buscar Centro de Acopio
+                            </label>
+                            <input type="text" id="centerSearchInput" placeholder="Escribe el nombre o ubicación del centro..." style="min-height: 38px; padding: 0.5rem 0.75rem; font-size: 0.85rem;" />
+                        </div>
+
                         <div class="centers-list" id="centersList"></div>
                     </div>
                 </div>
@@ -1754,6 +1776,7 @@
     // Estado global de la vista
     let currentFilter = 'all';
     let collectionCenters = [];
+    let centerSearchQuery = '';
     let userPosition = null;
     let centersMap = null;
     let centersLayer = null;
@@ -1854,6 +1877,12 @@
             },
             { enableHighAccuracy: true, timeout: 7000 }
         );
+    });
+
+    const centerSearchInput = document.getElementById('centerSearchInput');
+    centerSearchInput.addEventListener('input', () => {
+        centerSearchQuery = centerSearchInput.value;
+        renderCollectionCenters();
     });
 
     collectionCenterForm.addEventListener('submit', async (e) => {
@@ -2166,21 +2195,31 @@
         const sortedCenters = getCentersWithDistance();
         const nearest = getNearestCenter();
 
-        centersCount.textContent = `${collectionCenters.length} activos`;
+        const query = (centerSearchQuery || '').trim().toLowerCase();
+        const filteredCenters = query
+            ? sortedCenters.filter(c => 
+                (c.name || '').toLowerCase().includes(query) || 
+                (c.location_text || '').toLowerCase().includes(query)
+              )
+            : sortedCenters;
+
+        centersCount.textContent = query 
+            ? `${filteredCenters.length} filtrados` 
+            : `${collectionCenters.length} activos`;
         heroCentersCount.textContent = collectionCenters.length;
         updateCenterMarkers();
         updateNearestPanel(nearest);
 
-        if (sortedCenters.length === 0) {
+        if (filteredCenters.length === 0) {
             centersList.innerHTML = `
                 <div style="padding: 1rem; color: var(--text-secondary); border: 1px dashed var(--border-color); border-radius: 8px;">
-                    Aún no hay centros de acopio registrados.
+                    ${query ? 'No se encontraron centros que coincidan con la búsqueda.' : 'Aún no hay centros de acopio registrados.'}
                 </div>
             `;
             return;
         }
 
-        centersList.innerHTML = sortedCenters.map(center => {
+        centersList.innerHTML = filteredCenters.map(center => {
             const capacityStatus = center.capacity_status || 'operativo';
             const distanceText = center.distanceKm !== null ? `<p><strong>Distancia:</strong> ${formatDistance(center.distanceKm)}</p>` : '';
             const suppliesText = center.supplies ? `<p><strong>Insumos:</strong> ${escapeHTML(center.supplies)}</p>` : '';
@@ -2213,7 +2252,15 @@
         centersLayer.clearLayers();
         const bounds = [];
 
-        collectionCenters.forEach(center => {
+        const query = (centerSearchQuery || '').trim().toLowerCase();
+        const filteredForMarkers = query
+            ? collectionCenters.filter(c => 
+                (c.name || '').toLowerCase().includes(query) || 
+                (c.location_text || '').toLowerCase().includes(query)
+              )
+            : collectionCenters;
+
+        filteredForMarkers.forEach(center => {
             const lat = Number(center.lat);
             const lng = Number(center.lng);
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
