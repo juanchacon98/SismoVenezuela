@@ -1315,6 +1315,94 @@ app.get('/pfif', async (req, res) => {
   }
 });
 
+app.get('/api/temp-insert-centers', async (req, res) => {
+  const centers = [
+    { name: 'Centro de Acopio Boa Vista 1', location_text: 'Praza do centro cívico Boa Vista', lat: 2.8235, lng: -60.6758 },
+    { name: 'Centro de Acopio Boa Vista 2', location_text: 'Av Nossa Sra da Consolata 2555', lat: 2.8235, lng: -60.6758 },
+    { name: 'Centro de Acopio Bogotá', location_text: 'CALLE 104 #54-31 BARRIO PASADENA, SUBA', lat: 4.7110, lng: -74.0721 },
+    { name: 'Centro de Acopio Bogotá 2', location_text: 'Carrera 8va. Nro. 1A - 66 Sur.', lat: 4.7110, lng: -74.0721 },
+    { name: 'Centro de Acopio Bogotá 3', location_text: 'Diagonal 48b sur 24-86 CC comercial Tunal sur, puerta 06', lat: 4.7110, lng: -74.0721 },
+    { name: 'Centro de Acopio Bogotá 4', location_text: 'Carrera 8va Nro. 1A-66 Sur.', lat: 4.7110, lng: -74.0721 },
+    { name: 'Centro de Acopio Bucaramanga', location_text: 'CALLE 18 #21-52 SAN FRANCISCO. DIAGONAL A LA IGLESIA SAN FRANCISCO', lat: 7.1254, lng: -73.1198 },
+    { name: 'Centro de Acopio Cali', location_text: 'Carrera 28 B3 # 72S - 32 Comuneros II (Cerca Troncal Unida)', lat: 3.4516, lng: -76.5320 },
+    { name: 'Centro de Acopio Cali 2', location_text: 'Carrera 98 #48-30 UNIDAD SAN GABRIEL. Valle del Lili', lat: 3.4516, lng: -76.5320 },
+    { name: 'Centro de Acopio Carabobo (San Diego)', location_text: 'Frente a la Iglesia La Esmeralda e Iglesia del Pueblo de San Diego', lat: 10.2469, lng: -68.0074 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 1', location_text: 'Amenábar 1024, Colegiales', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 2', location_text: 'Libertad 996, Retiro.', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 3', location_text: 'La posta mi pana - Mansilla 2892', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 4', location_text: 'Kinefit - Santa Fe 3242', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 5', location_text: 'Caciques Barbería - Cabildo 228', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Ciudad de Buenos Aires 6', location_text: 'La posta mi pana - Mansilla 2892', lat: -34.6037, lng: -58.3816 },
+    { name: 'Centro de Acopio Cúcuta 1', location_text: 'Calle 11 Carreraa 7ma, Centro Comercial Gran Sam, 2do piso local 243 Gs', lat: 7.8939, lng: -72.5078 },
+    { name: 'Centro de Acopio Cúcuta 2', location_text: 'Avenida 1#5-24 barrios lleras Punto referencia Estadio de Cúcuta Diagonal a Restaurante Carnes Rojas.', lat: 7.8939, lng: -72.5078 },
+    { name: 'Centro de Acopio Cuenca', location_text: 'Av. 12 de octubre con calle Emilio carrere. Edificio Portal del Sol. Sector Yanuncay.', lat: -2.9001, lng: -79.0059 },
+    { name: 'Centro de Acopio Cuenca (Ecuador)', location_text: 'Av. 12 de octubre con calle Emilio Carrere. Edificio Portal del Sol. Sector Yanuncay.', lat: -2.9001, lng: -79.0059 },
+    { name: 'Centro de Acopio Dtto. Capital (Montalban)', location_text: 'Iglesia La Paz en Montalbán I. Municipio Libertador.', lat: 10.4806, lng: -66.9036 },
+    { name: 'Centro de Acopio Dtto. Capital (San Bernardino)', location_text: 'Iglesia San Bernardino de Siena. Parroquia San Bernardino.', lat: 10.4806, lng: -66.9036 },
+    { name: 'Centro de Acopio Edo. Aragua', location_text: 'Avenida 19 de abril. Centro Comercial La Capilla. Piso 1, local 21.', lat: 10.2442, lng: -67.6066 },
+    { name: 'Centro de Acopio Edo. Carabobo', location_text: 'Avenida Monseñor Adams, El Viñedo. Edificio Talislandia, mezzanina.', lat: 10.2469, lng: -68.0074 },
+    { name: 'Centro de Acopio Edo. Carabobo (Bejuma)', location_text: 'Av. Los Fundadores, entre Calles Miranda y Vargas', lat: 10.1739, lng: -68.2582 },
+    { name: 'Centro de Acopio Edo. Carabobo (Diego Ibarra)', location_text: 'Av. Carabobo, Antigua Sede de Vente (Cerca del Liceo Aníbal Paridisi)', lat: 10.2469, lng: -68.0074 },
+    { name: 'Centro de Acopio Edo. Carabobo (Guacara)', location_text: 'Ferretería Construguacara, Carretera Nacional Guacara, Vía San Joaquín.', lat: 10.2263, lng: -67.8789 },
+    { name: 'Centro de Acopio Edo. Carabobo (Juán José Mora)', location_text: 'Antigua Panadería Moran Pan, Av. Falcón, diagonal a MultiMax', lat: 10.4900, lng: -68.1887 },
+    { name: 'Centro de Acopio Edo. Carabobo (Los Guayos)', location_text: 'Elevado La Vivienda', lat: 10.1833, lng: -67.9333 },
+    { name: 'Centro de Acopio Edo. Carabobo (Naguanagua)', location_text: 'Semáforo de la Av. Universidad con calle Av. 190 (Sólo por la tarde de 3:00pm a 6:00pm)', lat: 10.2536, lng: -68.0125 },
+    { name: 'Centro de Acopio Edo. Carabobo (San Joaquín)', location_text: 'Plaza Las Panelas, Sector La Indiana', lat: 10.2642, lng: -67.7903 },
+    { name: 'Centro de Acopio Edo. Miranda', location_text: 'Cuarta avenida de Altamira, entre novena y décima transversal; Quinta El Bejucal.', lat: 10.4961, lng: -66.8488 },
+    { name: 'Centro de Acopio Guayaquíl', location_text: '"Local chamos burger", Victor Emilio Estrada yJiguas, diagonal al NovaGym Urdesa', lat: -2.1894, lng: -79.8890 },
+    { name: 'Centro de Acopio Guayaquil 2', location_text: 'Universidad de las Artes. Consejo Estudiantil', lat: -2.1894, lng: -79.8890 },
+    { name: 'Centro de Acopio Guayaquil 3', location_text: 'Queen Dental, Av. Quito y Velez edificio 943 arriba de Oro Cash. Centro Guayaquil', lat: -2.1894, lng: -79.8890 },
+    { name: 'Centro de Acopio La Aurora (Ecuador)', location_text: 'Calle 17 de octubre y enrrique gil gilbert. Al lado de Lubricadora Toreto', lat: -2.0469, lng: -79.8858 },
+    { name: 'Centro de Acopio Machala (Ecuador)', location_text: 'El guabo sucre y panamericana, Local AGROJECAM', lat: -3.2581, lng: -79.9605 },
+    { name: 'Centro de Acopio Maicao (Colombia)', location_text: 'Carrera 10 calle 12 (Esquina) local: Celumaicao', lat: 11.3777, lng: -72.2435 },
+    { name: 'Centro de Acopio Medellín', location_text: 'Institución Educativa Héctor Abad Gómez Sede placita de flores Barrio boston Calle 50#39-65 Villa de aburra belen carrer80a#32b-26', lat: 6.2442, lng: -75.5812 },
+    { name: 'Centro de Acopio Montería (Colombia)', location_text: 'Calle 28A #4W-79 Barrio San Miguel, Margen Izquierda. Montería, Córdoba', lat: 8.7480, lng: -75.8814 },
+    { name: 'Centro de Acopio Montevideo 1', location_text: 'Restaurante Poi de Pu - General Rivera 2984', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 2', location_text: 'Restaurante One Love - Soriano 1149 esq. Héctor Gutiérrez Ruiz', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 3', location_text: 'Manos Veneguayas - Bulevar Artigas 1881', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 4', location_text: 'Con Sabor a Llano - Carlos Quijano 1287', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 5', location_text: "Lehiner's - Roque Graseras 827", lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 6', location_text: 'Panadería La Embajada - Rincón 748 esq. Ciudadela', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Montevideo 7', location_text: 'Montevideo Bakery - José Leguizamon 3590', lat: -34.9011, lng: -56.1645 },
+    { name: 'Centro de Acopio Panamá 1', location_text: 'Edf. El Hatillo P.B. Alcaldía de Panamá', lat: 8.9824, lng: -79.5199 },
+    { name: 'Centro de Acopio Panamá 2', location_text: 'Casa Club Parque Omar', lat: 8.9824, lng: -79.5199 },
+    { name: 'Centro de Acopio Quito', location_text: 'Av Naciones Unidas con Av 10 de Agosto (Quito Norte) - "Cachapas el Felix"', lat: -0.1807, lng: -78.4678 },
+    { name: 'Centro de Acopio Quito 2', location_text: 'Av Rumichaca Ñan y Calle Moromoros, Edif Julio Cesar, Local # 03, Sector Chillogallo, como referencia al frente del estadio el Aucas (el sur)', lat: -0.1807, lng: -78.4678 },
+    { name: 'Centro de Acopio Quito 3', location_text: 'Av Naciones Unidas con Av 10 de agosto quito-norte - "Cachapas el Felix"', lat: -0.1807, lng: -78.4678 },
+    { name: 'Centro de Acopio Quito Sur', location_text: 'Sector quitumbes ninallacta casa comunal la comarca', lat: -0.1807, lng: -78.4678 },
+    { name: 'Centro de Acopio Santa Marta', location_text: 'PARQUE LA TENERIA CARRERA 2 CON 1D 36. CERCA DE PLAYA LOS COCOS', lat: 11.2408, lng: -74.1990 },
+    { name: 'Centro de Acopio Tenerife', location_text: 'Calle Francisco Garcia Talavera 2, Sta Cruz de Tenerife. Asociación AACV.', lat: 28.4636, lng: -16.2518 },
+    { name: 'Centro de Acopio Tenerife 2', location_text: 'Plaza de La Catedral (San Cristóbal de La Laguna)', lat: 28.4636, lng: -16.2518 },
+    { name: 'Centro de Acopio Texas (San Antonio)', location_text: '16111 San Pedro Ave, San Antonio, TX 78232', lat: 29.4241, lng: -98.4936 },
+    { name: 'Centro de Acopio Villahermosa (México)', location_text: 'Parque la choca, en el árbol grande. Cerca de helados DELIT.', lat: 17.9895, lng: -92.9475 }
+  ];
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN;');
+    
+    // Opcional: Limpiar los centros de acopio viejos si es necesario para evitar duplicados
+    await client.query('TRUNCATE TABLE public.collection_centers RESTART IDENTITY;');
+
+    for (const c of centers) {
+      await client.query(
+        `INSERT INTO public.collection_centers (name, location_text, lat, lng, capacity_status, is_active)
+         VALUES ($1, $2, $3, $4, 'operativo', true);`,
+        [c.name, c.location_text, c.lat, c.lng]
+      );
+    }
+
+    await client.query('COMMIT;');
+    res.json({ success: true, message: `Insertados ${centers.length} centros de acopio.` });
+  } catch (err) {
+    await client.query('ROLLBACK;');
+    console.error('Error insertando centros:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor de emergencia escuchando en el puerto ${port}`);
   startMissingPersonsSyncScheduler();
