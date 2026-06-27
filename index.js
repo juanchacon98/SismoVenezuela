@@ -1315,37 +1315,59 @@ app.get('/pfif', async (req, res) => {
   }
 });
 
-app.get('/api/delete-debug', async (req, res) => {
+app.get('/api/seed-new-centers', async (req, res) => {
+  const newCenters = [
+    {
+      name: "Parroquia San Antonio de Padua de Coro",
+      location_text: "Templo Parroquial (oficina), Coro, Falcón",
+      lat: 11.4082,
+      lng: -69.6778,
+      supplies: "Gasas estériles, vendas elásticas, Dexametasona, Hidrocortisona, Analgésicos, Enlatados (atún, sardinas), Agua potable, artículos de higiene personal, Alcohol, agua oxigenada, antisépticos, inyectadoras, algodón."
+    },
+    {
+      name: "Plaza de Los Palos Grandes",
+      location_text: "Plaza de Los Palos Grandes, Chacao, Caracas",
+      lat: 10.4965,
+      lng: -66.8422,
+      supplies: "Guantes, cascos, botas de seguridad, tapabocas, herramientas para remover escombros, ropa, agua (mucha), protector solar, medicamentos en general (amoxicilina, insulina, acetaminofén, bombas de oxígeno, inhaladores), cajas de cartón vacías, tirro/cinta adhesiva, compotas."
+    },
+    {
+      name: "Complejo Cultural y Deportivo Guayana (San Bernardino)",
+      location_text: "Complejo Cultural y Deportivo Guayana, San Bernardino, Caracas",
+      lat: 10.5135,
+      lng: -66.9012,
+      supplies: "Comida preparada o enlatada, medicinas (Acetaminofén, Hipertensivos), fórmula para bebés, pañales, sábanas, hidratación."
+    },
+    {
+      name: "Polideportivo Rafael Vidal (La Trinidad)",
+      location_text: "Polideportivo Rafael Vidal, La Trinidad, Baruta, Caracas",
+      lat: 10.4312,
+      lng: -66.8624,
+      supplies: "Losartán, Acetaminofén, Metformina 500, zapatos de niño (tallas 32 a 26), Omeprazol, pañales grandes y extragrandes, colchonetas, compotas."
+    }
+  ];
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN;');
-    
-    // 1. Ver qué hay en la base de datos que coincida
-    const before = await client.query("SELECT id, name FROM public.collection_centers WHERE name ILIKE '%Sangre%'");
-    
-    // 2. Establecer el rol de sesión para evadir RLS
     await client.query("SET LOCAL app.role = 'authenticated';");
-    
-    // 3. Hacer la eliminación por ID y por nombre
-    const result = await client.query(
-      `DELETE FROM public.collection_centers 
-       WHERE id = 'fb757b3d-821f-4d6c-8fa9-5604dcc4da36' 
-          OR name = 'Parroquia Presiosisima Sangre'
-          OR name ILIKE '%Sangre%';`
-    );
-    
-    // 4. Ver qué queda
-    const after = await client.query("SELECT id, name FROM public.collection_centers WHERE name ILIKE '%Sangre%'");
-    
+    let inserted = 0;
+    for (const c of newCenters) {
+      const check = await client.query('SELECT 1 FROM public.collection_centers WHERE name = $1', [c.name]);
+      if (check.rowCount === 0) {
+        await client.query(
+          `INSERT INTO public.collection_centers (name, location_text, lat, lng, capacity_status, is_active, supplies)
+           VALUES ($1, $2, $3, $4, 'operativo', true, $5);`,
+          [c.name, c.location_text, c.lat, c.lng, c.supplies]
+        );
+        inserted++;
+      }
+    }
     await client.query('COMMIT;');
-    res.json({
-      success: true,
-      before: before.rows,
-      deletedCount: result.rowCount,
-      after: after.rows
-    });
+    res.json({ success: true, message: `Insertados ${inserted} nuevos centros de acopio.` });
   } catch (err) {
     await client.query('ROLLBACK;');
+    console.error('Error insertando nuevos centros:', err.message);
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
