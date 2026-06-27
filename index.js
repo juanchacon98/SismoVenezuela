@@ -1315,6 +1315,87 @@ app.get('/pfif', async (req, res) => {
   }
 });
 
+app.get('/api/seed-lara-centers', async (req, res) => {
+  const laraCenters = [
+    { name: "Colegio Padre Machado", location_text: "Av. Lara entre calles 6 y 7, Urb. Nueva Segovia, Barquisimeto", lat: 10.0711, lng: -69.2944 },
+    { name: "Fitness Factory — Galpón", location_text: "Calle Urdaneta con Av. Venezuela, Barquisimeto", lat: 10.0742, lng: -69.3105 },
+    { name: "Fitness Factory — West (Oeste)", location_text: "C.C. Venrol, Av. Pedro León Torres entre calles 49 y 50, Barquisimeto", lat: 10.0633, lng: -69.3512 },
+    { name: "Pollos MB — 380kmvnzla", location_text: "Calle 36 esquina carrera 27, portón anaranjado, Barquisimeto", lat: 10.0725, lng: -69.3314 },
+    { name: "Electro Auto JB — 380kmvnzla", location_text: "Carrera 32A entre calles 42 y 43, Barquisimeto", lat: 10.0701, lng: -69.3402 },
+    { name: "Pollera Los Parras — 380kmvnzla", location_text: "Av. principal Colinas de San Lorenzo entre calles 4 y 5, Barquisimeto", lat: 10.1012, lng: -69.3245 },
+    { name: "380kmvnzla Norte — Pollera", location_text: "Vía El Cuji, a 100 m de la pasarela, al lado del Colegio Prados del Norte, Barquisimeto", lat: 10.1250, lng: -69.3188 },
+    { name: "Torre Changan", location_text: "Av. Bracamonte entre Av. Libertador y Av. Venezuela, Zona Este, Barquisimeto", lat: 10.0765, lng: -69.2901 },
+    { name: "Rafa's — donaciones en línea", location_text: "Donación en línea — contacto relacionado con Rafa's Casual Food, Barquisimeto", lat: 10.0740, lng: -69.2922 },
+    { name: "Hospitour", location_text: "Carrera 25 entre calles 14 y 15, Barquisimeto", lat: 10.0781, lng: -69.3142 },
+    { name: "Nevados VE", location_text: "Barquisimeto Torre Inter, planta baja, Barquisimeto", lat: 10.0758, lng: -69.2895 },
+    { name: "Bhoga Fashion Corner", location_text: "Urb. Nueva Segovia, calle 1 entre calles 3 y 4, Barquisimeto", lat: 10.0699, lng: -69.2952 },
+    { name: "Farma Bien", location_text: "Av. Vargas entre carreras 22 y 23, Edif. Gustavo, PB, Barquisimeto", lat: 10.0761, lng: -69.3204 },
+    { name: "Virtux Box", location_text: "Carrera 4 entre calles 18 y 19, Barquisimeto", lat: 10.0812, lng: -69.2882 },
+    { name: "Qué Sanguche", location_text: "Av. Venezuela y calle 22, Caminito, Barquisimeto", lat: 10.0768, lng: -69.3168 },
+    { name: "Grupo Ramón Pompilio", location_text: "Donación en efectivo — coordina por WhatsApp, Barquisimeto", lat: 10.0722, lng: -69.3190 },
+    { name: "Centauros Gym Arca", location_text: "C.C. Arca, carrera 32 con calle 20, Barquisimeto", lat: 10.0805, lng: -69.3112 },
+    { name: "Future Stars Baseball Academy", location_text: "Av. Caroní, edificio Future Stars, Barquisimeto", lat: 10.0678, lng: -69.2844 },
+    { name: "West Food and Bar", location_text: "Calle 52 entre carreras 14 y 15, Barquisimeto", lat: 10.0598, lng: -69.3562 },
+    { name: "Eleven24", location_text: "Barrio Unión, calle 6 entre carreras 19 y 20, Barquisimeto", lat: 10.0841, lng: -69.3362 },
+    { name: "Insuservi", location_text: "Calle 34 entre carreras 25 y Av. Venezuela, Barquisimeto", lat: 10.0734, lng: -69.3288 },
+    { name: "María Corredentora Reina de la Paz", location_text: "Yacural, Santa Rosa — casa #20, carrera 1 con calle 3, Barquisimeto", lat: 10.0655, lng: -69.2782 },
+    { name: "Barbería VIP", location_text: "C.C. Ciudad París, piso 2, frente a las escaleras eléctricas, Barquisimeto", lat: 10.0724, lng: -69.2862 },
+    { name: "Rafa's Casual Food / Chicken Box", location_text: "Todas sus sedes en Barquisimeto, Barquisimeto", lat: 10.0738, lng: -69.2905 },
+    { name: "Colegio Río Claro", location_text: "Av. Hernán Garmendia, frente a la urb. Río Lama, Barquisimeto", lat: 10.0831, lng: -69.2721 },
+    { name: "Fr Fit — Sede Este", location_text: "Av. Bracamonte, Barquisimeto", lat: 10.0754, lng: -69.2909 },
+    { name: "Fundación Redes Tejiendo", location_text: "Calle 41 entre carreras 13 y 14, casa 13-50, Barquisimeto", lat: 10.0672, lng: -69.3385 },
+    { name: "JAC Express Barquisimeto", location_text: "Av. 20 con calle 15, Barquisimeto", lat: 10.0815, lng: -69.3090 },
+    { name: "Voz Segura", location_text: "Edif. Villas del Parque (detrás de El Impulso), Barquisimeto", lat: 10.0694, lng: -69.2915 },
+    { name: "Sonrisas Sanadoras", location_text: "Calle 25 con carreras 17 y 18, Edif. Caribe, Barquisimeto", lat: 10.0772, lng: -69.3198 },
+    { name: "C.C Ciudad Paris", location_text: "C.C. Ciudad París, Av. Los leones, Barquisimeto", lat: 10.0722, lng: -69.2868 },
+    { name: "Universidad Fermín Toro (El Ujano)", location_text: "Todas sus sedes habilitadas, Barquisimeto", lat: 10.0845, lng: -69.2798 },
+    { name: "Parroquia Nuestra Señora de Guadalupe", location_text: "Av. 20 entre calles 40 y 41, Ciudad Crepuscular, Barquisimeto", lat: 10.0664, lng: -69.3444 },
+    { name: "MantequillaSport", location_text: "Av. Pedro León Torres con calle 46, Barquisimeto", lat: 10.0645, lng: -69.3475 },
+    { name: "Universidad Simón Rodríguez", location_text: "Av. Argimiro Bracamonte, frente al Parque del Este, Barquisimeto", lat: 10.0778, lng: -69.2888 },
+    { name: "Tecnológico Antonio José de Sucre", location_text: "Av. 20 entre calles 12 y 13, Barquisimeto", lat: 10.0825, lng: -69.3045 },
+    { name: "Bodegón Llanero", location_text: "Todas sus sedes en Barquisimeto, Barquisimeto", lat: 10.0715, lng: -69.2932 },
+    { name: "Sublime", location_text: "C.C. Barquicentro, Av. 20 entre calles 22 y 23, Barquisimeto", lat: 10.0792, lng: -69.3162 },
+    { name: "Merkafur", location_text: "Todas sus sedes en Barquisimeto, Barquisimeto", lat: 10.0652, lng: -69.3245 },
+    { name: "Boom Solutions", location_text: "Todas sus sedes en Barquisimeto, Barquisimeto", lat: 10.0782, lng: -69.3012 },
+    { name: "El Maizalito", location_text: "Av. Carlos Giffoni con calle 9, local parcela 163-2, Zona Industrial III, Barquisimeto", lat: 10.0545, lng: -69.3852 },
+    { name: "Un Nuevo Tiempo Lara", location_text: "Carrera 15 esquina calle 40, Barquisimeto", lat: 10.0712, lng: -69.3392 },
+    { name: "La Flor de Venezuela", location_text: "Av. Venezuela con Av. Bracamonte, Barquisimeto", lat: 10.0748, lng: -69.2905 },
+    { name: "Colegio San Pedro", location_text: "Carrera 18, Barquisimeto 3001, Lara, Barquisimeto", lat: 10.0752, lng: -69.3101 },
+    { name: "Fitness Factory — Cabudare", location_text: "Av. El Placer, C.C. Hipermercado, entre La Pollera y Mango Center, Cabudare", lat: 10.0382, lng: -69.2711 },
+    { name: "Campus Mora I — Yacambú", location_text: "Yacambú, Cabudare, Cabudare", lat: 10.0245, lng: -69.2552 },
+    { name: "Casapro", location_text: "Cabudare", lat: 10.0322, lng: -69.2612 },
+    { name: "Universidad Martin Luther King", location_text: "Sede en Cabudare, Cabudare", lat: 10.0278, lng: -69.2488 },
+    { name: "TodoPollo's (AIEM Rescatistas)", location_text: "Av. Principal de La Mata entre calles 4 y 5, Cabudare", lat: 10.0305, lng: -69.2678 },
+    { name: "Urb. Las Mercedes — Panadería San Benito", location_text: "Av. La Montañita, esquina Panadería San Benito, Cabudare", lat: 10.0212, lng: -69.2522 },
+    { name: "Gráficas Alvarado C.A. / Sonrisas Sanadoras", location_text: "Av. Santa Bárbara, Cabudare Centro, Cabudare", lat: 10.0345, lng: -69.2601 }
+  ];
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN;');
+    let inserted = 0;
+    for (const c of laraCenters) {
+      const check = await client.query('SELECT 1 FROM public.collection_centers WHERE name = $1', [c.name]);
+      if (check.rowCount === 0) {
+        await client.query(
+          `INSERT INTO public.collection_centers (name, location_text, lat, lng, capacity_status, is_active)
+           VALUES ($1, $2, $3, $4, 'operativo', true);`,
+          [c.name, c.location_text, c.lat, c.lng]
+        );
+        inserted++;
+      }
+    }
+    await client.query('COMMIT;');
+    res.json({ success: true, message: `Insertados ${inserted} nuevos centros de acopio en Lara.` });
+  } catch (err) {
+    await client.query('ROLLBACK;');
+    console.error('Error insertando centros Lara:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor de emergencia escuchando en el puerto ${port}`);
   startMissingPersonsSyncScheduler();
