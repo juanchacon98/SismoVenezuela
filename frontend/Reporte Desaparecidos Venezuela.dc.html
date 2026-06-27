@@ -2479,6 +2479,11 @@
         }
     });
 
+    let currentStateFilter = null;
+    const connectivityGrid = document.getElementById('connectivityGrid');
+    const userStateSelectorContainer = document.getElementById('userStateSelectorContainer');
+    const userStateSelect = document.getElementById('userStateSelect');
+
     // Carga inicial con refrescos moderados para conexiones lentas.
     initCentersMapWhenVisible();
     initMobileNavigation();
@@ -2491,11 +2496,6 @@
     scheduleVisibleRefresh(loadCollectionCenters, 120000);
     scheduleVisibleRefresh(loadMissingSyncStatus, 300000);
     scheduleVisibleRefresh(loadRecentSeismicEvents, 60000);
-
-    let currentStateFilter = null;
-    const connectivityGrid = document.getElementById('connectivityGrid');
-    const userStateSelectorContainer = document.getElementById('userStateSelectorContainer');
-    const userStateSelect = document.getElementById('userStateSelect');
 
     function initConnectivityMonitoring() {
         // 1. Cargar estado inicial del mapa de conectividad
