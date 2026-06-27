@@ -1173,6 +1173,129 @@ ${truncatedContent}`;
   }
 });
 
+function escapeXml(unsafe) {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function formatRowToPfifObj(row, hostname) {
+  const names = (row.full_name || '').trim().split(/\s+/);
+  const first_name = names[0] || '';
+  const last_name = names.slice(1).join(' ') || '';
+  const domain = hostname || 'ayuda-venezuela-backend-291864207498.us-central1.run.app';
+
+  return {
+    person_record_id: `${domain}/person/${row.id}`,
+    entry_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    author_name: 'SismoVenezuela',
+    author_email: '',
+    author_phone: row.contact_info || '',
+    source_name: 'SismoVenezuela',
+    source_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    source_url: row.source_url || `https://${domain}/personas/${row.id}`,
+    first_name: first_name,
+    last_name: last_name,
+    full_name: row.full_name || '',
+    alternate_names: '',
+    sex: '',
+    age: '',
+    home_street: '',
+    home_neighborhood: row.last_seen_location || '',
+    home_city: '',
+    home_state: row.state || '',
+    home_postal_code: '',
+    home_country: 'VE',
+    photo_url: '',
+    other: row.physical_description || ''
+  };
+}
+
+function pfifObjToXml(obj) {
+  return `  <pfif:person>
+    <pfif:person_record_id>${escapeXml(obj.person_record_id)}</pfif:person_record_id>
+    <pfif:entry_date>${escapeXml(obj.entry_date)}</pfif:entry_date>
+    <pfif:author_name>${escapeXml(obj.author_name)}</pfif:author_name>
+    <pfif:author_email>${escapeXml(obj.author_email)}</pfif:author_email>
+    <pfif:author_phone>${escapeXml(obj.author_phone)}</pfif:author_phone>
+    <pfif:source_name>${escapeXml(obj.source_name)}</pfif:source_name>
+    <pfif:source_date>${escapeXml(obj.source_date)}</pfif:source_date>
+    <pfif:source_url>${escapeXml(obj.source_url)}</pfif:source_url>
+    <pfif:first_name>${escapeXml(obj.first_name)}</pfif:first_name>
+    <pfif:last_name>${escapeXml(obj.last_name)}</pfif:last_name>
+    <pfif:full_name>${escapeXml(obj.full_name)}</pfif:full_name>
+    <pfif:alternate_names>${escapeXml(obj.alternate_names)}</pfif:alternate_names>
+    <pfif:sex>${escapeXml(obj.sex)}</pfif:sex>
+    <pfif:age>${escapeXml(obj.age)}</pfif:age>
+    <pfif:home_street>${escapeXml(obj.home_street)}</pfif:home_street>
+    <pfif:home_neighborhood>${escapeXml(obj.home_neighborhood)}</pfif:home_neighborhood>
+    <pfif:home_city>${escapeXml(obj.home_city)}</pfif:home_city>
+    <pfif:home_state>${escapeXml(obj.home_state)}</pfif:home_state>
+    <pfif:home_postal_code>${escapeXml(obj.home_postal_code)}</pfif:home_postal_code>
+    <pfif:home_country>${escapeXml(obj.home_country)}</pfif:home_country>
+    <pfif:photo_url>${escapeXml(obj.photo_url)}</pfif:photo_url>
+    <pfif:other>${escapeXml(obj.other)}</pfif:other>
+  </pfif:person>`;
+}
+
+app.get('/pfif', async (req, res) => {
+  const { updated_after, offset = '0', limit = '100' } = req.query;
+
+  const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
+
+  let queryText = `
+    SELECT mp.id, mp.full_name, mp.physical_description, mp.last_seen_location,
+           r.id as report_id, r.created_at, r.source_url, r.state, r.contact_info
+    FROM public.missing_persons mp
+    JOIN public.reports r ON mp.report_id = r.id
+    WHERE r.type = 'desaparecido' AND r.is_resolved = false
+  `;
+  const values = [];
+
+  if (updated_after) {
+    try {
+      const date = new Date(updated_after);
+      if (!isNaN(date.getTime())) {
+        values.push(date.toISOString());
+        queryText += ` AND r.created_at >= $${values.length}`;
+      }
+    } catch (e) {
+      console.warn('updated_after invalido:', updated_after);
+    }
+  }
+
+  values.push(parsedLimit, parsedOffset);
+  queryText += ` ORDER BY r.created_at ASC, mp.id ASC LIMIT $${values.length - 1} OFFSET $${values.length};`;
+
+  try {
+    const result = await pool.query(queryText, values);
+    const hostname = req.hostname || 'ayuda-venezuela-backend-291864207498.us-central1.run.app';
+    const pfifData = result.rows.map(row => formatRowToPfifObj(row, hostname));
+
+    // Content negotiation: Check query param format=xml or XML Content-Type accept headers
+    const acceptHeader = req.headers.accept || '';
+    const isXml = req.query.format === 'xml' || acceptHeader.includes('application/xml') || acceptHeader.includes('text/xml');
+
+    if (isXml) {
+      res.header('Content-Type', 'application/xml; charset=utf-8');
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<pfif:pfif xmlns:pfif="http://zesty.ca/pfif/1.4">\n`;
+      xml += pfifData.map(pfifObjToXml).join('\n');
+      xml += `\n</pfif:pfif>`;
+      return res.send(xml);
+    }
+
+    res.json(pfifData);
+  } catch (error) {
+    console.error('Error en endpoint /pfif:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor de emergencia escuchando en el puerto ${port}`);
   startMissingPersonsSyncScheduler();
