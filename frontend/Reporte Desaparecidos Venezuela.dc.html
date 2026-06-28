@@ -774,6 +774,22 @@
             color: var(--text-secondary);
             text-align: center;
             font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            line-height: 1.45;
+        }
+
+        .site-footer a {
+            color: var(--color-info);
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        .site-footer a:hover,
+        .site-footer a:focus {
+            text-decoration: underline;
         }
 
         @media (min-width: 760px) {
@@ -1914,7 +1930,12 @@
     </div>
 </div>
 
-<footer class="site-footer">Desarrollado por Corporaci&oacute;n 3JC</footer>
+<footer class="site-footer">
+    <span>Realizado por Corporaci&oacute;n 3JC y Dom&eacute;nico Ruperti</span>
+    <a href="https://wa.me/584143357226" target="_blank" rel="noopener noreferrer">
+        Contacto WhatsApp: +58 414-3357226
+    </a>
+</footer>
 
 <nav class="mobile-quick-actions" aria-label="Acciones rápidas">
     <a href="#collectionCentersCard" data-mobile-target="collectionCentersCard" class="active">Acopio</a>
