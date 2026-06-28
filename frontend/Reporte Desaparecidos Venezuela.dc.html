@@ -1212,9 +1212,9 @@
             </div>
 
             <div class="card" id="externalDataCard">
-                <h3 class="card-title">Base externa de desaparecidos</h3>
+                <h3 class="card-title">Desaparecidos e interoperabilidad</h3>
                 <p class="helper-text">
-                    Usa la base original como referencia y, si cuentas con un export autorizado en JSON, impórtalo aquí. El sistema fusiona duplicados por similitud de nombre y ubicación.
+                    El sistema publica los registros en PFIF 1.5 para integraciones automaticas como Localizalo. No hace falta hacer cargas manuales.
                 </p>
                 <div class="import-summary" id="missingSyncStatus" style="display: block; margin-top: 0; margin-bottom: 1rem;">
                     Consultando estado de sincronización...
@@ -1228,8 +1228,11 @@
                             Ver sitio original aquí
                         </button>
                     </div>
+                    <a class="btn" href="/pfif?updated_after=1970-01-01T00:00:00Z&offset=0&limit=1000" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #059669, #0e9bae); color: white; border: none; width: 100%; text-align: center; text-decoration: none;">
+                        Ver feed PFIF / Localizalo
+                    </a>
                     <button type="button" class="btn" id="btnScrapeMissing" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; width: 100%;">
-                        🤖 Sincronizar Fuente Externa con IA
+                        Sincronizar fuente autorizada
                     </button>
                 </div>
                 <div class="external-frame-wrap" id="externalFrameWrap">
@@ -1243,18 +1246,7 @@
                     ></iframe>
                 </div>
 
-                <form id="missingImportForm" style="margin-top: 1rem;">
-                    <div class="form-group">
-                        <label for="missingImportFile">Importar export JSON autorizado</label>
-                        <input class="file-input" type="file" id="missingImportFile" accept="application/json,.json">
-                    </div>
-                    <div class="form-group">
-                        <label for="missingImportJson">O pegar JSON</label>
-                        <textarea id="missingImportJson" placeholder='{"items":[{"nombre":"...", "ubicacion":"...", "descripcion":"..."}]}'></textarea>
-                    </div>
-                    <button type="submit" class="btn" id="btnImportMissing">Importar y quitar duplicados</button>
-                    <div class="import-summary" id="missingImportSummary"></div>
-                </form>
+                <div class="import-summary" id="missingImportSummary" style="display: none; margin-top: 1rem;"></div>
             </div>
 
             <!-- RECURSOS E INICIATIVAS ALIADAS -->
@@ -1966,10 +1958,6 @@
     const btnToggleExternalFrame = document.getElementById('btnToggleExternalFrame');
     const externalFrameWrap = document.getElementById('externalFrameWrap');
     const externalFrame = document.getElementById('externalFrame');
-    const missingImportForm = document.getElementById('missingImportForm');
-    const missingImportFile = document.getElementById('missingImportFile');
-    const missingImportJson = document.getElementById('missingImportJson');
-    const btnImportMissing = document.getElementById('btnImportMissing');
     const missingImportSummary = document.getElementById('missingImportSummary');
     const missingSyncStatus = document.getElementById('missingSyncStatus');
     const btnScrapeMissing = document.getElementById('btnScrapeMissing');
@@ -2148,79 +2136,15 @@
         btnToggleExternalFrame.textContent = isOpen ? 'Ocultar sitio original' : 'Ver sitio original aquí';
     });
 
-    missingImportFile.addEventListener('change', async () => {
-        const file = missingImportFile.files && missingImportFile.files[0];
-        if (!file) return;
-
-        try {
-            missingImportJson.value = await file.text();
-        } catch (error) {
-            console.error(error);
-            showToast('No se pudo leer el archivo JSON.', 'error');
-        }
-    });
-
-    missingImportForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        let payload;
-        try {
-            payload = JSON.parse(missingImportJson.value);
-        } catch {
-            showToast('El JSON no es válido.', 'error');
-            return;
-        }
-
-        btnImportMissing.disabled = true;
-        btnImportMissing.textContent = 'Importando...';
-        missingImportSummary.style.display = 'block';
-        missingImportSummary.textContent = 'Procesando registros y buscando duplicados...';
-
-        try {
-            const body = Array.isArray(payload)
-                ? { source: 'desaparecidosterremotovenezuela.com', items: payload }
-                : { source: 'desaparecidosterremotovenezuela.com', ...payload };
-
-            const res = await fetch(`${API_BASE}/api/import/missing-persons`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-
-            btnImportMissing.disabled = false;
-            btnImportMissing.textContent = 'Importar y quitar duplicados';
-
-            if (!data.success) {
-                missingImportSummary.innerHTML = `<strong>Error:</strong> ${escapeHTML(data.error || 'No se pudo importar.')}`;
-                showToast('No se pudo importar la base externa.', 'error');
-                return;
-            }
-
-            missingImportSummary.innerHTML = `
-                <strong>Importación lista.</strong><br>
-                Recibidos: ${data.received}. Nuevos: ${data.created}. Duplicados fusionados: ${data.merged_duplicates}. Localizados omitidos: ${data.skipped_resolved}. Inválidos: ${data.skipped_invalid}. Errores: ${data.errors}.
-            `;
-            showToast('Base externa importada y deduplicada.', 'success');
-            loadReports();
-        } catch (error) {
-            console.error(error);
-            btnImportMissing.disabled = false;
-            btnImportMissing.textContent = 'Importar y quitar duplicados';
-            missingImportSummary.innerHTML = '<strong>Error:</strong> No se pudo conectar con el servidor.';
-            showToast('Error de conexión al importar.', 'error');
-        }
-    });
-
     btnScrapeMissing.addEventListener('click', async () => {
         btnScrapeMissing.disabled = true;
         const originalText = btnScrapeMissing.textContent;
-        btnScrapeMissing.textContent = 'Sincronizando con IA...';
+        btnScrapeMissing.textContent = 'Sincronizando...';
         missingImportSummary.style.display = 'block';
         missingImportSummary.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span class="pulse" style="display: inline-block; width: 8px; height: 8px; background: #7c3aed; border-radius: 50%;"></span>
-                <span>Sincronizando desaparecidosterremotovenezuela.com vía ScrapeGraphAI + Gemini (esto puede tardar de 25 a 45 segundos)...</span>
+                <span>Consultando la fuente configurada y actualizando posibles duplicados...</span>
             </div>
         `;
         
@@ -2872,7 +2796,7 @@
             if (!sync.enabled) {
                 missingSyncStatus.innerHTML = `
                     <strong>Sincronización automática pendiente.</strong><br>
-                    Se puede activar con un export/API autorizado. Mientras tanto, usa importación JSON manual.
+                    Se puede activar con un export/API autorizado. El feed PFIF seguira disponible para Localizalo.
                 `;
                 return;
             }
@@ -2880,7 +2804,7 @@
             if (sync.last_status === 'error') {
                 missingSyncStatus.innerHTML = `
                     <strong>Última sincronización con error.</strong><br>
-                    Se reintentará automáticamente${nextRun ? ` cerca de las ${nextRun}` : ''}. También puedes importar JSON manual.
+                    Se reintentara automaticamente${nextRun ? ` cerca de las ${nextRun}` : ''}. El feed PFIF seguira disponible.
                 `;
                 return;
             }
