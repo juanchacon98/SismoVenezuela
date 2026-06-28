@@ -2,6 +2,8 @@
 
 Plataforma humanitaria de alta disponibilidad y contingencia diseñada para centralizar incidentes, ubicar personas desaparecidas y evaluar el estado de la conectividad de red a nivel nacional tras el sismo en Venezuela.
 
+Ver tambien: [`ROADMAP.md`](./ROADMAP.md) para prioridades de seguridad, datos, UX movil y operacion.
+
 ---
 
 ## 🚀 Arquitectura del Sistema
