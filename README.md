@@ -44,6 +44,7 @@ PORT=8080
 DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/emergencia_ccs
 PUBLIC_BASE_URL=https://ayudaterremoto.rv2ven.com
 PFIF_NAMESPACE=ayudaterremoto.rv2ven.com
+ADMIN_ACTION_TOKEN=token_largo_para_operadores
 
 # Sincronización mediante API/URL (Opcional)
 MISSING_PERSONS_SOURCE_NAME=desaparecidosterremotovenezuela.com
@@ -66,8 +67,9 @@ El servidor estará escuchando en `http://localhost:8080`.
 Para evitar saltarse protecciones como reCAPTCHA, el sistema prioriza una fuente JSON/API autorizada configurada con `MISSING_PERSONS_SYNC_URL`. Si no existe esa fuente, puede ejecutar una sincronizacion asistida por Gemini desde el contenido publico disponible, con deduplicacion posterior.
 
 *   **Ejecución automática**: El programador en segundo plano (`startMissingPersonsSyncScheduler`) ejecuta la sincronizacion cada **10 minutos** si asi se configura, con backoff automatico cuando hay fallos.
-*   **Deduplicación Semántica**: Los registros obtenidos se procesan en lote. Se comparan similitudes trigramáticas (`pg_trgm`) en PostgreSQL. Si una persona tiene un nombre similar (>72%) o coincidencia parcial de ubicación-nombre, sus datos de contacto y fuentes se fusionan automáticamente en lugar de crear un reporte duplicado.
+*   **Deduplicación auditada**: Los registros obtenidos se procesan en lote. El backend normaliza acentos, compara tokens y bigramas de nombre/ubicación, toma en cuenta fuente específica y contacto, y solo fusiona cuando la confianza supera el umbral definido. Cada fusión devuelve `dedupe_confidence` y `dedupe_reason`.
 *   **Estados federados**: Los reportes activos se exportan como `status=missing`; los reportes marcados como resueltos se exportan como `status=found`.
+*   **Resolución protegida**: Marcar un caso como resuelto requiere `ADMIN_ACTION_TOKEN` enviado como `X-Admin-Token`. En el navegador de un operador se activa con `setSismoOperatorToken('token')`.
 
 ## 🔎 Feed PFIF 1.5 para Localizalo
 
@@ -111,6 +113,7 @@ Configura estos secretos en **Settings → Secrets and variables → Actions** d
 | `GCP_SA_KEY` | JSON completo de la clave de la Service Account de GCP con permisos para Artifact Registry y Cloud Run |
 | `GCP_PROJECT_ID` | ID del proyecto en Google Cloud (ej. `praxis-ia-498305`) |
 | `DATABASE_URL` | Connection string completo de PostgreSQL (Cloud SQL) |
+| `ADMIN_ACTION_TOKEN` | Token largo para acciones de operador como marcar reportes resueltos |
 | `GEMINI_API_KEY` | API Key de Google AI Studio para el motor de IA (`/api/sync-external`) |
 | `MISSING_PERSONS_SYNC_URL` | (Opcional) URL del endpoint autorizado para sincronizar personas desaparecidas |
 

@@ -229,8 +229,8 @@ BEGIN
     v_source_url := payload->>'source_url';
     v_description := payload->>'description';
     v_location_text := payload->>'location_text';
-    v_lat := (payload->>'lat')::DOUBLE PRECISION;
-    v_lng := (payload->>'lng')::DOUBLE PRECISION;
+    v_lat := NULLIF(payload->>'lat', '')::DOUBLE PRECISION;
+    v_lng := NULLIF(payload->>'lng', '')::DOUBLE PRECISION;
     v_contact_info := payload->>'contact_info';
     v_state := payload->>'state';
     v_missing_person := payload->'missing_person';
@@ -257,29 +257,71 @@ BEGIN
         RAISE EXCEPTION 'Nivel de urgencia inválido: %', v_urgency;
     END IF;
 
-    -- 3. Búsqueda de Duplicados en Reportes Activos (No Resueltos)
-    SELECT id INTO v_duplicate_id
-    FROM public.reports
-    WHERE type = v_type::incident_type
-      AND is_resolved = false
-      AND (
-        -- Criterio A: Distancia GPS menor a 500 metros (0.5 km) usando la fórmula Haversine
-        (v_lat IS NOT NULL AND v_lng IS NOT NULL AND lat IS NOT NULL AND lng IS NOT NULL AND
-         (6371 * acos(
-           LEAST(1.0, GREATEST(-1.0, 
-             cos(radians(v_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(v_lng)) + 
-             sin(radians(v_lat)) * sin(radians(lat))
-           ))
-         )) < 0.5)
-        OR
-        -- Criterio B: Similitud del texto de descripción > 40%
-        (similarity(description, v_description) > 0.4)
-        OR
-        -- Criterio C: Similitud de la referencia de ubicación > 40%
-        (similarity(location_text, v_location_text) > 0.4)
-      )
-    ORDER BY created_at DESC
-    LIMIT 1;
+    IF v_missing_person IS NOT NULL THEN
+        v_mp_name := v_missing_person->>'full_name';
+        v_mp_description := v_missing_person->>'physical_description';
+        v_mp_last_seen := v_missing_person->>'last_seen_location';
+    END IF;
+
+    -- 3. Búsqueda de duplicados activos con reglas específicas para desaparecidos
+    IF v_type = 'desaparecido' THEN
+        IF v_missing_person IS NULL THEN
+            RAISE EXCEPTION 'Se requiere el nodo "missing_person" para incidentes de tipo desaparecido.';
+        END IF;
+
+        IF v_mp_name IS NULL OR v_mp_name = '' THEN
+            RAISE EXCEPTION 'El campo "missing_person.full_name" es obligatorio.';
+        END IF;
+
+        SELECT r.id INTO v_duplicate_id
+        FROM public.reports r
+        JOIN public.missing_persons mp ON mp.report_id = r.id
+        WHERE r.type = 'desaparecido'::incident_type
+          AND r.is_resolved = false
+          AND (
+            similarity(mp.full_name, v_mp_name) > 0.72
+            OR (
+              similarity(mp.full_name, v_mp_name) > 0.58
+              AND similarity(COALESCE(mp.last_seen_location, r.location_text), COALESCE(NULLIF(v_mp_last_seen, ''), v_location_text)) > 0.42
+            )
+            OR (
+              v_source_url IS NOT NULL
+              AND v_source_url != ''
+              AND length(v_source_url) > 45
+              AND COALESCE(r.source_url, '') LIKE '%' || v_source_url || '%'
+              AND similarity(mp.full_name, v_mp_name) > 0.5
+            )
+          )
+        ORDER BY GREATEST(
+            similarity(mp.full_name, v_mp_name),
+            similarity(COALESCE(mp.last_seen_location, r.location_text), COALESCE(NULLIF(v_mp_last_seen, ''), v_location_text))
+        ) DESC,
+        r.created_at DESC
+        LIMIT 1;
+    ELSE
+        SELECT id INTO v_duplicate_id
+        FROM public.reports
+        WHERE type = v_type::incident_type
+          AND is_resolved = false
+          AND (
+            -- Criterio A: Distancia GPS menor a 500 metros (0.5 km) usando la fórmula Haversine
+            (v_lat IS NOT NULL AND v_lng IS NOT NULL AND lat IS NOT NULL AND lng IS NOT NULL AND
+             (6371 * acos(
+               LEAST(1.0, GREATEST(-1.0,
+                 cos(radians(v_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(v_lng)) +
+                 sin(radians(v_lat)) * sin(radians(lat))
+               ))
+             )) < 0.5)
+            OR
+            -- Criterio B: Similitud del texto de descripción > 40%
+            (similarity(description, v_description) > 0.4)
+            OR
+            -- Criterio C: Similitud de la referencia de ubicación > 40%
+            (similarity(location_text, v_location_text) > 0.4)
+          )
+        ORDER BY created_at DESC
+        LIMIT 1;
+    END IF;
 
     -- 4. Bifurcación: Fusión o Inserción
     IF v_duplicate_id IS NOT NULL THEN
@@ -288,10 +330,13 @@ BEGIN
         v_status := 'merged';
 
         UPDATE public.reports
-        SET description = description || E'\n\n[Actualización ' || to_char(timezone('utc', now()), 'YYYY-MM-DD HH24:MI:SS') || ' UTC]: ' || v_description,
+        SET description = CASE
+                WHEN position(v_description in description) > 0 THEN description
+                ELSE description || E'\n\n[Actualización ' || to_char(timezone('utc', now()), 'YYYY-MM-DD HH24:MI:SS') || ' UTC]: ' || v_description
+            END,
             contact_info = CASE 
-                WHEN v_contact_info IS NOT NULL AND v_contact_info != '' THEN 
-                    COALESCE(contact_info, '') || ' | ' || v_contact_info
+                WHEN v_contact_info IS NOT NULL AND v_contact_info != '' AND COALESCE(contact_info, '') NOT LIKE '%' || v_contact_info || '%' THEN
+                    CASE WHEN contact_info IS NOT NULL AND contact_info != '' THEN contact_info || ' | ' || v_contact_info ELSE v_contact_info END
                 ELSE contact_info 
             END,
             -- Fusionamos URLs de origen si son diferentes
@@ -335,10 +380,6 @@ BEGIN
         IF v_missing_person IS NULL THEN
             RAISE EXCEPTION 'Se requiere el nodo "missing_person" para incidentes de tipo desaparecido.';
         END IF;
-
-        v_mp_name := v_missing_person->>'full_name';
-        v_mp_description := v_missing_person->>'physical_description';
-        v_mp_last_seen := v_missing_person->>'last_seen_location';
 
         IF v_mp_name IS NULL OR v_mp_name = '' THEN
             RAISE EXCEPTION 'El campo "missing_person.full_name" es obligatorio.';

@@ -19,7 +19,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -43,6 +43,7 @@ const MISSING_PERSONS_SYNC_MAX_RECORDS = Math.min(
 );
 const MISSING_PERSONS_SYNC_TOKEN = process.env.MISSING_PERSONS_SYNC_TOKEN || '';
 const MISSING_PERSONS_SYNC_API_KEY = process.env.MISSING_PERSONS_SYNC_API_KEY || '';
+const ADMIN_ACTION_TOKEN = process.env.ADMIN_ACTION_TOKEN || process.env.RESOLVE_REPORT_TOKEN || '';
 const HAS_MISSING_PERSONS_SYNC_SOURCE = Boolean(
   MISSING_PERSONS_SYNC_URL || process.env.GEMINI_API_KEY || process.env.GCP_PROJECT_ID
 );
@@ -111,6 +112,105 @@ function normalizeOptionalText(value) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeDedupeText(value) {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(persona|personas|desaparecido|desaparecida|desaparecidos|desaparecidas|sin|nombre|desconocido|desconocida|na|n a)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function toTokenSet(value) {
+  return new Set(normalizeDedupeText(value).split(' ').filter(token => token.length > 1));
+}
+
+function tokenDiceScore(left, right) {
+  const leftTokens = toTokenSet(left);
+  const rightTokens = toTokenSet(right);
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+
+  let matches = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) matches += 1;
+  }
+  return (2 * matches) / (leftTokens.size + rightTokens.size);
+}
+
+function bigramDiceScore(left, right) {
+  const normalize = value => normalizeDedupeText(value).replace(/\s+/g, '');
+  const leftText = normalize(left);
+  const rightText = normalize(right);
+  if (leftText.length < 2 || rightText.length < 2) return leftText === rightText && leftText ? 1 : 0;
+
+  const bigrams = text => {
+    const counts = new Map();
+    for (let i = 0; i < text.length - 1; i += 1) {
+      const pair = text.slice(i, i + 2);
+      counts.set(pair, (counts.get(pair) || 0) + 1);
+    }
+    return counts;
+  };
+
+  const leftPairs = bigrams(leftText);
+  const rightPairs = bigrams(rightText);
+  let matches = 0;
+  for (const [pair, count] of leftPairs.entries()) {
+    matches += Math.min(count, rightPairs.get(pair) || 0);
+  }
+
+  return (2 * matches) / Math.max(1, leftText.length + rightText.length - 2);
+}
+
+function combinedTextScore(left, right) {
+  return Math.max(tokenDiceScore(left, right), bigramDiceScore(left, right));
+}
+
+function phoneDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function hasContactOverlap(left, right) {
+  const leftDigits = phoneDigits(left);
+  const rightDigits = phoneDigits(right);
+  return leftDigits.length >= 7 && rightDigits.length >= 7 &&
+    (leftDigits.includes(rightDigits) || rightDigits.includes(leftDigits));
+}
+
+function scoreMissingPersonDuplicate(candidate, person) {
+  const candidateLocation = candidate.last_seen_location || candidate.location_text;
+  const nameScore = combinedTextScore(candidate.full_name, person.fullName);
+  const locationScore = combinedTextScore(candidateLocation, person.locationText);
+  const exactName = normalizeDedupeText(candidate.full_name) === person.dedupeName;
+  const sourceOverlap = Boolean(person.sourceId && person.sourceUrl && candidate.source_url && String(candidate.source_url).includes(person.sourceUrl));
+  const contactOverlap = hasContactOverlap(candidate.contact_info, person.contactInfo);
+
+  let confidence = (nameScore * 0.72) + (locationScore * 0.28);
+  if (exactName) confidence += 0.08;
+  if (sourceOverlap || contactOverlap) confidence += 0.1;
+  confidence = Math.min(confidence, 1);
+
+  const strongNameAndPlace = nameScore >= 0.88 && locationScore >= 0.5;
+  const exactNameWithPlace = exactName && locationScore >= 0.42;
+  const trustedSourceMatch = (sourceOverlap || contactOverlap) && nameScore >= 0.72;
+
+  return {
+    shouldMerge: confidence >= 0.78 && (strongNameAndPlace || exactNameWithPlace || trustedSourceMatch),
+    confidence,
+    nameScore,
+    locationScore,
+    reason: sourceOverlap ? 'source_url' : contactOverlap ? 'contact' : exactName ? 'exact_name_location' : 'name_location'
+  };
+}
+
+function isAdminActionAuthorized(req) {
+  const token = req.get('X-Admin-Token') || (req.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  return Boolean(ADMIN_ACTION_TOKEN && token && token === ADMIN_ACTION_TOKEN);
+}
+
 function parseCoordinate(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -146,6 +246,9 @@ function normalizeImportedMissingPerson(raw) {
     sourceId,
     fullName,
     locationText,
+    dedupeName: normalizeDedupeText(fullName),
+    dedupeLocation: normalizeDedupeText(locationText),
+    physicalDescription: description,
     description: details || `Reporte importado desde base externa para ${fullName || 'persona sin nombre'}.`,
     contactInfo,
     status,
@@ -169,27 +272,43 @@ function normalizeImportedMissingPerson(raw) {
 
 async function findExistingMissingPerson(client, person) {
   const result = await client.query(
-    `SELECT r.id, r.source_url, mp.full_name, r.location_text,
-            similarity(mp.full_name, $1) AS name_score,
-            similarity(r.location_text, $2) AS location_score
+    `SELECT r.id, r.source_url, r.contact_info, mp.full_name, mp.last_seen_location, r.location_text,
+            similarity(mp.full_name, $1) AS db_name_score,
+            similarity(COALESCE(mp.last_seen_location, r.location_text), $2) AS db_location_score
      FROM public.missing_persons mp
      JOIN public.reports r ON r.id = mp.report_id
      WHERE r.type = 'desaparecido'
        AND r.is_resolved = false
        AND (
-         similarity(mp.full_name, $1) > 0.72
-         OR (
-           similarity(mp.full_name, $1) > 0.58
-           AND similarity(r.location_text, $2) > 0.42
-         )
+         similarity(mp.full_name, $1) > 0.36
+         OR similarity(COALESCE(mp.last_seen_location, r.location_text), $2) > 0.45
+         OR lower(mp.full_name) = lower($1)
        )
-     ORDER BY GREATEST(similarity(mp.full_name, $1), similarity(r.location_text, $2)) DESC,
+     ORDER BY GREATEST(
+                similarity(mp.full_name, $1),
+                similarity(COALESCE(mp.last_seen_location, r.location_text), $2)
+              ) DESC,
               r.created_at DESC
-     LIMIT 1;`,
+     LIMIT 25;`,
     [person.fullName, person.locationText]
   );
 
-  return result.rows[0] || null;
+  let best = null;
+  for (const candidate of result.rows) {
+    const score = scoreMissingPersonDuplicate(candidate, person);
+    if (!score.shouldMerge) continue;
+    if (!best || score.confidence > best.dedupe_confidence) {
+      best = {
+        ...candidate,
+        name_score: score.nameScore,
+        location_score: score.locationScore,
+        dedupe_confidence: score.confidence,
+        dedupe_reason: score.reason
+      };
+    }
+  }
+
+  return best;
 }
 
 async function mergeImportedMissingPersonSource(client, existing, person) {
@@ -204,9 +323,29 @@ async function mergeImportedMissingPersonSource(client, existing, person) {
            WHEN $3 IS NOT NULL AND $3 != '' AND COALESCE(contact_info, '') NOT LIKE '%' || $3 || '%' THEN
              CASE WHEN contact_info IS NOT NULL AND contact_info != '' THEN contact_info || ' | ' || $3 ELSE $3 END
            ELSE contact_info
+         END,
+         description = CASE
+           WHEN $4 IS NOT NULL AND $4 != '' AND position($4 in description) = 0 THEN
+             description || E'\n\n[Fuente externa fusionada ' || to_char(timezone('utc', now()), 'YYYY-MM-DD HH24:MI:SS') || ' UTC]: ' || $4
+           ELSE description
          END
      WHERE id = $1;`,
-    [existing.id, person.sourceUrl, person.contactInfo]
+    [existing.id, person.sourceUrl, person.contactInfo, person.description]
+  );
+
+  await client.query(
+    `UPDATE public.missing_persons
+     SET physical_description = CASE
+           WHEN (physical_description IS NULL OR physical_description = '') AND $2 IS NOT NULL AND $2 != '' THEN $2
+           ELSE physical_description
+         END,
+         last_seen_location = CASE
+           WHEN (last_seen_location IS NULL OR last_seen_location = '') AND $3 IS NOT NULL AND $3 != '' THEN $3
+           ELSE last_seen_location
+         END
+     WHERE report_id = $1
+       AND similarity(full_name, $4) > 0.5;`,
+    [existing.id, person.physicalDescription, person.locationText, person.fullName]
   );
 }
 
@@ -265,8 +404,10 @@ async function importMissingPersonsBatch(rawItems, options = {}) {
             source_id: person.sourceId,
             name: person.fullName,
             existing_report_id: existing.id,
-            name_score: Number(existing.name_score).toFixed(2),
-            location_score: Number(existing.location_score).toFixed(2)
+            name_score: Number(existing.name_score || 0).toFixed(2),
+            location_score: Number(existing.location_score || 0).toFixed(2),
+            dedupe_confidence: Number(existing.dedupe_confidence || 0).toFixed(2),
+            dedupe_reason: existing.dedupe_reason
           });
           continue;
         }
@@ -1004,6 +1145,13 @@ app.patch('/api/reports/:id/resolve', async (req, res) => {
   const client = await pool.connect();
 
   try {
+    if (!isAdminActionAuthorized(req)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Acción reservada para operadores autorizados.'
+      });
+    }
+
     await client.query('BEGIN;');
     await client.query("SET LOCAL app.role = 'authenticated';");
 
