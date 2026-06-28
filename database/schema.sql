@@ -32,13 +32,15 @@ CREATE TABLE IF NOT EXISTS public.reports (
     contact_info TEXT,           -- Permite reportes anónimos si se omite
     state TEXT,                  -- Estado federal de Venezuela (NUEVO)
     is_resolved BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
 -- Migración de esquema en caliente para bases de datos ya existentes (idempotente)
 ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS title TEXT;
 ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS source_url TEXT;
 ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS state TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now());
 
 -- 4. TABLA SECUNDARIA: missing_persons (Creación Idempotente)
 CREATE TABLE IF NOT EXISTS public.missing_persons (
@@ -46,8 +48,11 @@ CREATE TABLE IF NOT EXISTS public.missing_persons (
     report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
     physical_description TEXT,
-    last_seen_location TEXT
+    last_seen_location TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE public.missing_persons ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now());
 
 -- 5. TABLA DE CENTROS DE ACOPIO (Creación Idempotente)
 CREATE TABLE IF NOT EXISTS public.collection_centers (
@@ -84,6 +89,7 @@ CREATE TABLE IF NOT EXISTS public.connectivity_telemetry (
 CREATE INDEX IF NOT EXISTS idx_connectivity_telemetry_state_time ON public.connectivity_telemetry (state, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_active_feed ON public.reports (is_resolved, urgency, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_type ON public.reports (type);
+CREATE INDEX IF NOT EXISTS idx_reports_pfif_export ON public.reports (type, updated_at ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_missing_persons_report_id ON public.missing_persons (report_id);
 CREATE INDEX IF NOT EXISTS idx_missing_persons_name_trgm ON public.missing_persons USING gin (full_name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_collection_centers_active ON public.collection_centers (is_active, created_at DESC);
@@ -163,6 +169,28 @@ CREATE POLICY "Permitir insert público en connectivity_telemetry" ON public.con
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
+
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = timezone('utc'::text, now());
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS reports_touch_updated_at ON public.reports;
+CREATE TRIGGER reports_touch_updated_at
+BEFORE UPDATE ON public.reports
+FOR EACH ROW
+EXECUTE FUNCTION public.touch_updated_at();
+
+DROP TRIGGER IF EXISTS missing_persons_touch_updated_at ON public.missing_persons;
+CREATE TRIGGER missing_persons_touch_updated_at
+BEFORE UPDATE ON public.missing_persons
+FOR EACH ROW
+EXECUTE FUNCTION public.touch_updated_at();
 
 -- ========================================================
 -- RPC ATÓMICO: PROCESAMIENTO CON DE-DUPLICACIÓN INTELIGENTE

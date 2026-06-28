@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { spawn } from 'child_process';
 
 dotenv.config();
 
@@ -44,6 +43,9 @@ const MISSING_PERSONS_SYNC_MAX_RECORDS = Math.min(
 );
 const MISSING_PERSONS_SYNC_TOKEN = process.env.MISSING_PERSONS_SYNC_TOKEN || '';
 const MISSING_PERSONS_SYNC_API_KEY = process.env.MISSING_PERSONS_SYNC_API_KEY || '';
+const HAS_MISSING_PERSONS_SYNC_SOURCE = Boolean(
+  MISSING_PERSONS_SYNC_URL || process.env.GEMINI_API_KEY || process.env.GCP_PROJECT_ID
+);
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -53,11 +55,11 @@ const pool = new pg.Pool({
 });
 
 const missingPersonsSyncState = {
-  enabled: true,
+  enabled: HAS_MISSING_PERSONS_SYNC_SOURCE,
   in_progress: false,
   last_run_at: null,
-  next_run_at: new Date(Date.now() + 15000).toISOString(),
-  last_status: 'scheduled',
+  next_run_at: HAS_MISSING_PERSONS_SYNC_SOURCE ? new Date(Date.now() + 15000).toISOString() : null,
+  last_status: HAS_MISSING_PERSONS_SYNC_SOURCE ? 'scheduled' : 'disabled',
   last_error: null,
   last_summary: null,
   etag: null,
@@ -410,7 +412,7 @@ function computeNextSyncDelay() {
   return MISSING_PERSONS_SYNC_INTERVAL_MS * multiplier;
 }
 
-async function runPythonScraperHelper() {
+async function runNativeMissingPersonsScraper() {
   console.log('Iniciando raspado nativo de desaparecidos con Gemini...');
 
   if (!process.env.GEMINI_API_KEY && !process.env.GCP_PROJECT_ID) {
@@ -517,6 +519,18 @@ ${truncatedHtml}`;
 }
 
 async function runMissingPersonsSync(reason = 'scheduled') {
+  if (!HAS_MISSING_PERSONS_SYNC_SOURCE) {
+    missingPersonsSyncState.enabled = false;
+    missingPersonsSyncState.last_status = 'disabled';
+    missingPersonsSyncState.next_run_at = null;
+    missingPersonsSyncState.last_summary = {
+      reason,
+      skipped: true,
+      skip_reason: 'missing_sync_source_not_configured'
+    };
+    return missingPersonsSyncState.last_summary;
+  }
+
   if (missingPersonsSyncState.in_progress) {
     return { skipped: true, reason: 'sync_in_progress' };
   }
@@ -546,8 +560,8 @@ async function runMissingPersonsSync(reason = 'scheduled') {
       }
       items = external.items;
     } else {
-      console.log('Ejecutando scraper de Python para sincronización automática...');
-      items = await runPythonScraperHelper();
+      console.log('Ejecutando sincronizacion nativa de desaparecidos con Gemini...');
+      items = await runNativeMissingPersonsScraper();
     }
 
     const summary = await importMissingPersonsBatch(items, {
@@ -580,6 +594,11 @@ async function runMissingPersonsSync(reason = 'scheduled') {
 }
 
 function startMissingPersonsSyncScheduler() {
+  if (!HAS_MISSING_PERSONS_SYNC_SOURCE) {
+    console.log('Sincronizacion externa de desaparecidos desactivada: configura MISSING_PERSONS_SYNC_URL, GEMINI_API_KEY o GCP_PROJECT_ID.');
+    return;
+  }
+
   const tick = async () => {
     await runMissingPersonsSync('scheduled');
     setTimeout(tick, computeNextSyncDelay()).unref();
@@ -590,7 +609,7 @@ function startMissingPersonsSyncScheduler() {
   if (MISSING_PERSONS_SYNC_URL) {
     console.log(`Sincronización externa de desaparecidos activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 60000)} min vía URL.`);
   } else {
-    console.log(`Sincronización externa activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 3600000)} horas vía ScrapeGraphAI.`);
+    console.log(`Sincronización externa activa cada ${Math.round(MISSING_PERSONS_SYNC_INTERVAL_MS / 60000)} min via Gemini.`);
   }
 }
 
@@ -763,11 +782,11 @@ app.post('/api/import/missing-persons/sync', async (req, res) => {
   });
 });
 
-// Endpoint: Scrapear personas desaparecidas vía ScrapeGraphAI + Gemini (Mantenido para compatibilidad)
+// Endpoint: Sincronizar personas desaparecidas via Gemini (mantenido para compatibilidad)
 app.post('/api/scrape-missing', async (req, res) => {
-  console.log('Iniciando raspado con ScrapeGraphAI via endpoint...');
+  console.log('Iniciando sincronizacion de desaparecidos via endpoint...');
   try {
-    const rawItems = await runPythonScraperHelper();
+    const rawItems = await runNativeMissingPersonsScraper();
     if (!rawItems || rawItems.length === 0) {
       return res.status(200).json({
         success: true,
@@ -1211,117 +1230,187 @@ function sanitizeValue(val) {
   return String(val);
 }
 
-function formatRowToPfifObj(row, hostname) {
-  const full_name = sanitizeValue(row.full_name);
-  const names = full_name.trim().split(/\s+/);
-  const first_name = names[0] || '';
-  const last_name = names.slice(1).join(' ') || '';
-  const domain = hostname || 'ayuda-venezuela-backend-291864207498.us-central1.run.app';
+function normalizePublicBaseUrl(value) {
+  return sanitizeValue(value).replace(/\/+$/, '');
+}
 
+function getRequestBaseUrl(req) {
+  const configuredUrl = normalizePublicBaseUrl(process.env.PUBLIC_BASE_URL || process.env.PFIF_PUBLIC_BASE_URL);
+  if (configuredUrl) return configuredUrl;
+
+  const proto = sanitizeValue(req.get('x-forwarded-proto')).split(',')[0] || req.protocol || 'https';
+  const host = sanitizeValue(req.get('x-forwarded-host')).split(',')[0] || req.get('host') || 'ayudaterremoto.rv2ven.com';
+  return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
+function getPfifNamespace(req) {
+  const configuredNamespace = sanitizeValue(process.env.PFIF_NAMESPACE);
+  if (configuredNamespace) return configuredNamespace.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+  try {
+    return new URL(getRequestBaseUrl(req)).host;
+  } catch (e) {
+    return 'ayudaterremoto.rv2ven.com';
+  }
+}
+
+function splitFullName(fullName) {
+  const names = sanitizeValue(fullName).trim().split(/\s+/).filter(Boolean);
   return {
-    person_record_id: `${domain}/person/${row.id}`,
-    entry_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
-    author_name: 'SismoVenezuela',
-    author_email: '',
-    author_phone: sanitizeValue(row.contact_info),
-    source_name: 'SismoVenezuela',
-    source_date: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
-    source_url: sanitizeValue(row.source_url) || `https://${domain}/personas/${row.id}`,
-    first_name: first_name,
-    last_name: last_name,
-    full_name: full_name,
-    alternate_names: '',
-    sex: '',
-    age: '',
-    home_street: '',
-    home_neighborhood: sanitizeValue(row.last_seen_location),
-    home_city: '',
-    home_state: sanitizeValue(row.state),
-    home_postal_code: '',
-    home_country: 'VE',
-    photo_url: '',
-    other: sanitizeValue(row.physical_description)
+    given_name: names[0] || '',
+    family_name: names.slice(1).join(' ')
   };
 }
 
+function parsePfifDate(value) {
+  if (!value) return new Date(0);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('updated_after debe ser una fecha ISO 8601 valida.');
+  }
+  return date;
+}
+
+function parsePfifInteger(value, fallback, min, max, name) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const text = String(value);
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`${name} debe ser un entero mayor o igual a ${min}.`);
+  }
+  const parsed = Number.parseInt(text, 10);
+  if (!Number.isInteger(parsed) || parsed < min) {
+    throw new Error(`${name} debe ser un entero mayor o igual a ${min}.`);
+  }
+  return Math.min(parsed, max);
+}
+
+function formatRowToPfifObj(row, req) {
+  const full_name = sanitizeValue(row.full_name).trim();
+  const { given_name, family_name } = splitFullName(full_name);
+  const namespace = getPfifNamespace(req);
+  const baseUrl = getRequestBaseUrl(req);
+  const createdAt = row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString();
+  const updatedAt = row.exported_updated_at ? new Date(row.exported_updated_at).toISOString() : createdAt;
+  const sourceUrl = sanitizeValue(row.source_url).split('|').map(value => value.trim()).filter(Boolean)[0] || `${baseUrl}/pfif`;
+  const lastKnownLocation = sanitizeValue(row.last_seen_location) || sanitizeValue(row.location_text);
+  const description = sanitizeValue(row.physical_description) || sanitizeValue(row.description);
+  const otherParts = [
+    sanitizeValue(row.title) ? `Titulo: ${sanitizeValue(row.title)}` : '',
+    sanitizeValue(row.state) ? `Estado: ${sanitizeValue(row.state)}` : '',
+    sanitizeValue(row.contact_info) ? `Contacto: ${sanitizeValue(row.contact_info)}` : ''
+  ].filter(Boolean);
+
+  return {
+    person_record_id: `${namespace}/${row.id}`,
+    full_name,
+    given_name,
+    family_name,
+    age: '',
+    last_known_location: lastKnownLocation,
+    description,
+    photo_url: '',
+    status: row.is_resolved ? 'found' : 'missing',
+    source_date: updatedAt,
+    author_name: 'SismoVenezuela',
+    entry_date: createdAt,
+    source_name: 'SismoVenezuela',
+    source_url: sourceUrl,
+    contacto: sanitizeValue(row.contact_info),
+    updated_at: updatedAt,
+    other: otherParts.join(' | ')
+  };
+}
+
+const PFIF_XML_FIELDS = [
+  'person_record_id',
+  'full_name',
+  'given_name',
+  'family_name',
+  'age',
+  'last_known_location',
+  'description',
+  'photo_url',
+  'status',
+  'source_date',
+  'author_name',
+  'entry_date',
+  'source_name',
+  'source_url',
+  'contacto',
+  'other'
+];
+
 function pfifObjToXml(obj) {
-  return `  <pfif:person>
-    <pfif:person_record_id>${escapeXml(obj.person_record_id)}</pfif:person_record_id>
-    <pfif:entry_date>${escapeXml(obj.entry_date)}</pfif:entry_date>
-    <pfif:author_name>${escapeXml(obj.author_name)}</pfif:author_name>
-    <pfif:author_email>${escapeXml(obj.author_email)}</pfif:author_email>
-    <pfif:author_phone>${escapeXml(obj.author_phone)}</pfif:author_phone>
-    <pfif:source_name>${escapeXml(obj.source_name)}</pfif:source_name>
-    <pfif:source_date>${escapeXml(obj.source_date)}</pfif:source_date>
-    <pfif:source_url>${escapeXml(obj.source_url)}</pfif:source_url>
-    <pfif:first_name>${escapeXml(obj.first_name)}</pfif:first_name>
-    <pfif:last_name>${escapeXml(obj.last_name)}</pfif:last_name>
-    <pfif:full_name>${escapeXml(obj.full_name)}</pfif:full_name>
-    <pfif:alternate_names>${escapeXml(obj.alternate_names)}</pfif:alternate_names>
-    <pfif:sex>${escapeXml(obj.sex)}</pfif:sex>
-    <pfif:age>${escapeXml(obj.age)}</pfif:age>
-    <pfif:home_street>${escapeXml(obj.home_street)}</pfif:home_street>
-    <pfif:home_neighborhood>${escapeXml(obj.home_neighborhood)}</pfif:home_neighborhood>
-    <pfif:home_city>${escapeXml(obj.home_city)}</pfif:home_city>
-    <pfif:home_state>${escapeXml(obj.home_state)}</pfif:home_state>
-    <pfif:home_postal_code>${escapeXml(obj.home_postal_code)}</pfif:home_postal_code>
-    <pfif:home_country>${escapeXml(obj.home_country)}</pfif:home_country>
-    <pfif:photo_url>${escapeXml(obj.photo_url)}</pfif:photo_url>
-    <pfif:other>${escapeXml(obj.other)}</pfif:other>
-  </pfif:person>`;
+  const fields = PFIF_XML_FIELDS
+    .map(field => `    <pfif:${field}>${escapeXml(obj[field])}</pfif:${field}>`)
+    .join('\n');
+
+  return `  <pfif:person>\n${fields}\n  </pfif:person>`;
+}
+
+function wantsPfifXml(req) {
+  const acceptHeader = req.headers.accept || '';
+  return req.query.format === 'xml' || acceptHeader.includes('application/xml') || acceptHeader.includes('text/xml');
 }
 
 app.get('/pfif', async (req, res) => {
-  const { updated_after, offset = '0', limit = '100' } = req.query;
+  let updatedAfter;
+  let parsedOffset;
+  let parsedLimit;
 
-  const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
-  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
-
-  let queryText = `
-    SELECT mp.id, mp.full_name, mp.physical_description, mp.last_seen_location,
-           r.id as report_id, r.created_at, r.source_url, r.state, r.contact_info
-    FROM public.missing_persons mp
-    JOIN public.reports r ON mp.report_id = r.id
-    WHERE r.type = 'desaparecido' AND r.is_resolved = false
-  `;
-  const values = [];
-
-  if (updated_after) {
-    try {
-      const date = new Date(updated_after);
-      if (!isNaN(date.getTime())) {
-        values.push(date.toISOString());
-        queryText += ` AND r.created_at >= $${values.length}`;
-      }
-    } catch (e) {
-      console.warn('updated_after invalido:', updated_after);
-    }
+  try {
+    updatedAfter = parsePfifDate(req.query.updated_after);
+    parsedOffset = parsePfifInteger(req.query.offset, 0, 0, 1000000, 'offset');
+    parsedLimit = parsePfifInteger(req.query.limit, 1000, 1, 1000, 'limit');
+  } catch (error) {
+    return res.status(400).json({
+      error: error.message,
+      expected: '/pfif?updated_after=1970-01-01T00:00:00Z&offset=0&limit=1000'
+    });
   }
 
-  values.push(parsedLimit, parsedOffset);
-  queryText += ` ORDER BY r.created_at ASC, mp.id ASC LIMIT $${values.length - 1} OFFSET $${values.length};`;
+  const updatedExpression = `
+    GREATEST(
+      COALESCE(mp.updated_at, r.updated_at, r.created_at),
+      COALESCE(r.updated_at, r.created_at),
+      r.created_at
+    )
+  `;
+  const queryText = `
+    SELECT mp.id, mp.full_name, mp.physical_description, mp.last_seen_location,
+           r.id as report_id, r.created_at, r.updated_at as report_updated_at,
+           r.source_url, r.state, r.contact_info, r.location_text, r.description,
+           r.title, r.is_resolved, ${updatedExpression} as exported_updated_at
+    FROM public.missing_persons mp
+    JOIN public.reports r ON mp.report_id = r.id
+    WHERE r.type = 'desaparecido'
+      AND ${updatedExpression} > $1
+    ORDER BY exported_updated_at ASC, mp.id ASC
+    LIMIT $2 OFFSET $3;
+  `;
+  const values = [updatedAfter.toISOString(), parsedLimit, parsedOffset];
 
   try {
     const result = await pool.query(queryText, values);
-    const hostname = req.hostname || 'ayuda-venezuela-backend-291864207498.us-central1.run.app';
-    const pfifData = result.rows.map(row => formatRowToPfifObj(row, hostname));
+    const pfifData = result.rows.map(row => formatRowToPfifObj(row, req));
 
-    // Content negotiation: Check query param format=xml or XML Content-Type accept headers
-    const acceptHeader = req.headers.accept || '';
-    const isXml = req.query.format === 'xml' || acceptHeader.includes('application/xml') || acceptHeader.includes('text/xml');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-PFIF-Version', '1.5');
+    res.setHeader('X-PFIF-Count', String(pfifData.length));
 
-    if (isXml) {
-      res.header('Content-Type', 'application/xml; charset=utf-8');
-      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<pfif:pfif xmlns:pfif="http://zesty.ca/pfif/1.4">\n`;
+    if (wantsPfifXml(req)) {
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<pfif:pfif xmlns:pfif="http://zesty.ca/pfif/1.5">\n`;
       xml += pfifData.map(pfifObjToXml).join('\n');
       xml += `\n</pfif:pfif>`;
       return res.send(xml);
     }
 
-    res.json(pfifData);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.json(pfifData);
   } catch (error) {
     console.error('Error en endpoint /pfif:', error.message);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 

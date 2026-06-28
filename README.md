@@ -11,14 +11,13 @@ El proyecto está diseñado con un modelo híbrido resiliente para garantizar ba
 1.  **Frontend (Vanilla JS / CSS / HTML)**: Panel interactivo premium con mapa de topología de red nacional (SVG), visualización de sismos recientes (conectado a la API de USGS) y reportes ciudadanos de emergencias y personas desaparecidas.
 2.  **Backend (Node.js / Express / PostgreSQL)**: Desplegado en **Google Cloud Run** y conectado a **Cloud SQL**. Administra incidentes, centros de acopio y gestiona la ingesta de base de datos externas.
 3.  **Capa Serverless (Cloudflare Workers)**: Worker desplegado en `api.vnzl.technolink.tech` que firma JWTs locales mediante **Web Crypto (RS256)** para consultar de forma segura la API v1 de Google Analytics (GA4) y retornar telemetría de tráfico por estados en tiempo real sin revelar secretos.
-4.  **Raspado con IA (ScrapeGraphAI + Gemini)**: Script en Python (`database/scrape_missing.py`) ejecutado por el backend para scrapear de forma inteligente, parsear y deduplicar personas desaparecidas desde el portal `desaparecidosterremotovenezuela.com`.
+4.  **Ingesta y federacion de desaparecidos**: El backend importa lotes autorizados, ejecuta deduplicacion en PostgreSQL y publica un feed `GET /pfif` compatible con PFIF 1.5 para integracion con Localizalo.
 
 ---
 
 ## 🛠️ Requisitos de Desarrollo
 
 *   **Node.js**: versión 20.x o superior
-*   **Python**: versión 3.11.x o superior
 *   **PostgreSQL**: versión 15 o superior (con extensión `pg_trgm` habilitada para deduplicación semántica)
 
 ---
@@ -41,12 +40,14 @@ Crea un archivo `.env` en la raíz del proyecto basado en `.env.example`:
 ```ini
 PORT=8080
 DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/emergencia_ccs
+PUBLIC_BASE_URL=https://ayudaterremoto.rv2ven.com
+PFIF_NAMESPACE=ayudaterremoto.rv2ven.com
 
 # Sincronización mediante API/URL (Opcional)
 MISSING_PERSONS_SOURCE_NAME=desaparecidosterremotovenezuela.com
-MISSING_PERSONS_SYNC_INTERVAL_MS=21600000 # 6 horas por defecto
+MISSING_PERSONS_SYNC_INTERVAL_MS=600000 # 10 minutos; el backend no permite menos
 
-# API Key de Gemini para el Scraper Inteligente y la consola de IA
+# API Key de Gemini para sincronizacion asistida y consola de IA
 GEMINI_API_KEY=tu_gemini_api_key
 ```
 
@@ -58,13 +59,38 @@ El servidor estará escuchando en `http://localhost:8080`.
 
 ---
 
-## 🤖 Motor de Scraping Inteligente (ScrapeGraphAI)
+## 🤖 Ingesta de Personas Desaparecidas
 
-Para evitar el uso de APIs propietarias restringidas por reCAPTCHA, el sistema integra un scraper basado en LLM que lee directamente el portal `desaparecidosterremotovenezuela.com`.
+Para evitar saltarse protecciones como reCAPTCHA, el sistema prioriza una fuente JSON/API autorizada configurada con `MISSING_PERSONS_SYNC_URL`. Si no existe esa fuente, puede ejecutar una sincronizacion asistida por Gemini desde el contenido publico disponible, con deduplicacion posterior.
 
-*   **Ejecución automática**: El programador en segundo plano (`startMissingPersonsSyncScheduler`) ejecuta el scraper automáticamente cada **6 horas**.
+*   **Ejecución automática**: El programador en segundo plano (`startMissingPersonsSyncScheduler`) ejecuta la sincronizacion cada **10 minutos** si asi se configura, con backoff automatico cuando hay fallos.
 *   **Deduplicación Semántica**: Los registros obtenidos se procesan en lote. Se comparan similitudes trigramáticas (`pg_trgm`) en PostgreSQL. Si una persona tiene un nombre similar (>72%) o coincidencia parcial de ubicación-nombre, sus datos de contacto y fuentes se fusionan automáticamente en lugar de crear un reporte duplicado.
-*   **Parche de Compatibilidad**: El scraper incluye un parche dinámico de inyección en `sys.modules` para sortear la deprecación de `ChatOllama` en las últimas versiones de `langchain-community`, garantizando la estabilidad del entorno.
+*   **Estados federados**: Los reportes activos se exportan como `status=missing`; los reportes marcados como resueltos se exportan como `status=found`.
+
+## 🔎 Feed PFIF 1.5 para Localizalo
+
+El endpoint publico `GET /pfif` cumple el contrato solicitado por Localizalo:
+
+```http
+GET /pfif?updated_after=1970-01-01T00:00:00Z&offset=0&limit=1000
+Accept: application/xml
+```
+
+*   Devuelve PFIF 1.5 XML cuando el cliente envia `Accept: application/xml` o `?format=xml`.
+*   Devuelve JSON plano cuando el cliente envia `Accept: application/json` o no negocia XML.
+*   Ordena por `source_date` ascendente y usa `updated_at` real para que `updated_after` no pierda cambios.
+*   Soporta `offset` y `limit` hasta 1000 registros por pagina.
+
+Entrada sugerida para `apps/etl/sources.yml` en `jorgerojas26/localizalo`:
+
+```yaml
+sources:
+  - id: sismo-venezuela
+    name: SismoVenezuela
+    namespace: ayudaterremoto.rv2ven.com
+    base_url: https://ayudaterremoto.rv2ven.com
+    rate_limit_ms: 100
+```
 
 ---
 
